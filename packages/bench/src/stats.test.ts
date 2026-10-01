@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { inp, median, p90, summarizeRun, type RawRun } from './stats'
+import { inp, median, p90, summarizeRun, summarizeScroll, type RawRun } from './stats'
 
 describe('median / p90', () => {
   it('홀수 개의 중앙값', () => {
@@ -69,6 +69,21 @@ describe('summarizeRun', () => {
       longTaskTotalMs: 130,
       inpMs: 48,
       remounts: 2,
+    })
+  })
+})
+
+describe('summarizeScroll', () => {
+  it('최종 위치 차이를 위치 오차로, 1px 넘게 벗어난 프레임 수를 튄 프레임으로 센다', () => {
+    expect(
+      summarizeScroll({ initial: 100, samples: [100, 100.5, 900, 100, 100], final: 100.4 }),
+    ).toEqual({ positionErrorPx: 0.4, jumpedFrames: 1 })
+  })
+
+  it('보정이 안 되면 위치 오차가 크게 남는다', () => {
+    expect(summarizeScroll({ initial: 0, samples: [0, 1200, 1200], final: 1200 })).toEqual({
+      positionErrorPx: 1200,
+      jumpedFrames: 2,
     })
   })
 })

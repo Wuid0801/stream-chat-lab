@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { renderReport, type Conditions } from './report'
-import type { RunSummary } from './stats'
+import type { RunSummary, ScrollSummary } from './stats'
 
 const conditions: Conditions = {
   date: '2026-10-01',
@@ -20,13 +20,15 @@ const conditions: Conditions = {
   build: 'vite build --mode bench',
 }
 
-const run = (overrides: Partial<RunSummary> = {}): RunSummary => ({
+const run = (overrides: Partial<RunSummary & ScrollSummary> = {}): RunSummary & ScrollSummary => ({
   commits: 10,
   meanRenderMs: 1,
   maxRenderMs: 2,
   longTaskTotalMs: 100,
   inpMs: 40,
   remounts: 2,
+  positionErrorPx: 0,
+  jumpedFrames: 0,
   ...overrides,
 })
 
@@ -51,7 +53,16 @@ describe('renderReport', () => {
     expect(md).toMatch(/\| v3 \|.*\| <16 \/ <16 \|/)
   })
 
-  it('측정하지 않은 위치 오차 칸은 비워 둔다', () => {
-    expect(md).toMatch(/\| v0 \|.*\| — \|$/m)
+  it('위치 오차와 튄 프레임을 적는다', () => {
+    const scroll = renderReport(conditions, [
+      {
+        version: 5,
+        runs: [
+          run({ positionErrorPx: 0.5, jumpedFrames: 0 }),
+          run({ positionErrorPx: 1.5, jumpedFrames: 2 }),
+        ],
+      },
+    ])
+    expect(scroll).toMatch(/\| v5 \|.*\| 1 \/ 1\.5 \| 1 \/ 2 \|$/m)
   })
 })
