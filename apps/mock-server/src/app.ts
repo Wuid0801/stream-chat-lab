@@ -147,10 +147,13 @@ export function createApp(options: AppOptions) {
     )
   })
 
-  app.get('/messages', (c) => {
+  app.get('/messages', async (c) => {
     if (!hasDemoToken(c)) return unauthorized(c)
     // 측정(bench)에서 메시지 200개를 한 번에 불러오므로 최대 200개까지 준다.
     const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 20) || 20, 1), 200)
+    // out-of-order-history: 응답을 늦춰 스트림 확정과 도착 순서를 뒤바꾼다. 페이지는 응답하는 시점 기준이다.
+    const delayMs = Math.min(Math.max(Number(c.req.query('delayMs') ?? 0) || 0, 0), 10_000)
+    if (delayMs > 0) await sleep(delayMs)
     return c.json(store.page(c.req.query('cursor'), limit))
   })
 
