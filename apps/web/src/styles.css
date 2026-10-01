@@ -82,6 +82,8 @@ body {
 .message-list {
   flex: 1;
   overflow-y: auto;
+  /* 브라우저의 스크롤 앵커링을 끈다. 위로 불러오기 보정을 직접 하고 그 방식을 비교하기 위해서다. (decisions/015) */
+  overflow-anchor: none;
   padding: 16px;
 }
 
@@ -92,6 +94,10 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.sentinel {
+  height: 1px;
 }
 
 .message {

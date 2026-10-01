@@ -48,6 +48,7 @@ export function createApiClient(options: { baseUrl: string; token: string }): Ch
       const params = new URLSearchParams()
       if (page.cursor !== undefined) params.set('cursor', page.cursor)
       if (page.limit !== undefined) params.set('limit', String(page.limit))
+      if (page.delayMs !== undefined) params.set('delayMs', String(page.delayMs))
       const query = params.size === 0 ? '' : `?${params.toString()}`
       return messagesPageSchema.parse(await request(`/messages${query}`))
     },

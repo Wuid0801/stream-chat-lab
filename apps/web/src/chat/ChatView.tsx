@@ -21,9 +21,21 @@ interface Props {
   turnRequest: TurnRequestOptions
   /** 처음 불러올 지난 메시지 수 */
   historyLimit?: number
+  /** out-of-order-history: 처음 히스토리 응답을 서버가 늦춘다 */
+  historyDelayMs?: number
 }
 
-export function ChatView({ api, transport, variant, turnRequest, historyLimit }: Props) {
+/** 위로 불러올 때 한 번에 가져오는 메시지 수 */
+const OLDER_PAGE_SIZE = 50
+
+export function ChatView({
+  api,
+  transport,
+  variant,
+  turnRequest,
+  historyLimit,
+  historyDelayMs,
+}: Props) {
   const [state, dispatch] = useReducer(chatReducer, initialChatState)
   const [historyError, setHistoryError] = useState(false)
   const controllerRef = useRef<TurnController | null>(null)
@@ -67,20 +79,34 @@ export function ChatView({ api, transport, variant, turnRequest, historyLimit }:
 
   useEffect(() => {
     let cancelled = false
-    api.getMessages(historyLimit === undefined ? {} : { limit: historyLimit }).then(
-      (page) => {
-        if (!cancelled) dispatch({ type: 'history-loaded', messages: page.messages })
-      },
-      () => {
-        if (!cancelled) setHistoryError(true)
-      },
-    )
+    api
+      .getMessages({
+        ...(historyLimit === undefined ? {} : { limit: historyLimit }),
+        ...(historyDelayMs === undefined ? {} : { delayMs: historyDelayMs }),
+      })
+      .then(
+        (page) => {
+          if (!cancelled) {
+            dispatch({
+              type: 'history-loaded',
+              messages: page.messages,
+              nextCursor: page.nextCursor,
+            })
+          }
+        },
+        () => {
+          if (!cancelled) setHistoryError(true)
+        },
+      )
     return () => {
       cancelled = true
     }
-  }, [api, historyLimit])
+  }, [api, historyLimit, historyDelayMs])
 
-  const messages = useMemo(() => selectDisplayMessages(state), [state])
+  const messages = useMemo(
+    () => selectDisplayMessages(state, { stableKey: variant.stableKey }),
+    [state, variant.stableKey],
+  )
   const busy = state.streaming !== null || state.local.some((m) => m.status === 'pending')
 
   function startTurn(clientId: string, text: string) {
@@ -111,12 +137,25 @@ export function ChatView({ api, transport, variant, turnRequest, historyLimit }:
     })
   }, [])
 
+  const olderCursor = state.olderCursor
+  const loadOlder = useCallback(async () => {
+    if (!olderCursor) return
+    try {
+      const page = await api.getMessages({ cursor: olderCursor, limit: OLDER_PAGE_SIZE })
+      dispatch({ type: 'older-loaded', messages: page.messages, nextCursor: page.nextCursor })
+    } catch {
+      // 실패하면 커서를 그대로 둔다. 다시 위로 스크롤하면 다시 시도한다.
+    }
+  }, [api, olderCursor])
+
   const waiting = state.streaming === null && state.local.some((m) => m.status === 'pending')
   const list = (
     <MessageList
       messages={messages}
       variant={variant}
       waiting={waiting}
+      hasOlder={Boolean(olderCursor)}
+      onLoadOlder={loadOlder}
       onRetry={retry}
       onCopy={copy}
     />

@@ -24,8 +24,9 @@ function readInt(params: URLSearchParams, name: string): number | undefined {
  * - `scenario`, `seed`: 목 서버 장애 시나리오 (docs/protocol.md)
  * - `firstTokenDelay`, `silence`, `heartbeat=off`, `heartbeatMs`, `bufferMs`: 시나리오 시간 값
  * - `transport`: `eventsource`(기본) 또는 `fetch`. `idleTimeout`: fetch 어댑터의 idle 타임아웃
- * - `v`: 렌더 비교 버전 0~3 (기본 최신)
+ * - `v`: 렌더 비교 버전 0~5 (기본 최신)
  * - `history`, `tokens`, `rate`: 측정 조건 (packages/bench)
+ * - `historyDelay`: 처음 히스토리 응답을 늦춘다 (out-of-order-history)
  */
 function readParams() {
   const params = new URLSearchParams(window.location.search)
@@ -69,10 +70,12 @@ function readParams() {
     transport,
     variant: parseVariant(params.get('v')),
     historyLimit: readInt(params, 'history'),
+    historyDelayMs: readInt(params, 'historyDelay'),
   }
 }
 
-const { turnRequest, transportName, transport, variant, historyLimit } = readParams()
+const { turnRequest, transportName, transport, variant, historyLimit, historyDelayMs } =
+  readParams()
 
 export function App() {
   return (
@@ -91,6 +94,7 @@ export function App() {
         variant={variant}
         turnRequest={turnRequest}
         {...(historyLimit === undefined ? {} : { historyLimit })}
+        {...(historyDelayMs === undefined ? {} : { historyDelayMs })}
       />
     </main>
   )

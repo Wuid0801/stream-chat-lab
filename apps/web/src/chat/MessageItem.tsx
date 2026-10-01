@@ -30,6 +30,8 @@ export function MessageItem({ message, markdown, onRetry, onCopy }: Props) {
     <li
       className={`message message--${message.role}`}
       data-testid="message"
+      data-key={message.key}
+      data-client-id={message.clientId}
       data-role={message.role}
       data-status={message.status}
     >
