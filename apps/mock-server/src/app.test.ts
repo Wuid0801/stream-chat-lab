@@ -209,3 +209,36 @@ describe('측정 조건 (bench)', () => {
     expect(page.messages).toHaveLength(200)
   })
 })
+
+describe('GET /messages?delayMs= (out-of-order-history)', () => {
+  it('응답을 delayMs만큼 늦추고, 페이지는 응답하는 시점의 내용으로 만든다', async () => {
+    const sleeps: number[] = []
+    let release!: () => void
+    const { app } = setup({
+      sleep: (ms) => {
+        sleeps.push(ms)
+        return ms === 3000 ? new Promise<void>((r) => (release = r)) : Promise.resolve()
+      },
+    })
+    const pending = app.request('/messages?delayMs=3000', { headers: auth })
+    await new Promise((r) => setTimeout(r, 0))
+    // 히스토리 요청이 지연되는 동안 새 턴이 저장된다.
+    await createTurn(app, { clientId: 'late-1', text: '늦은 히스토리' })
+    release()
+    const page = messagesPageSchema.parse(await (await pending).json())
+    expect(sleeps).toContain(3000)
+    expect(page.messages.map((m) => m.clientId)).toContain('late-1')
+  })
+
+  it('delayMs는 10초까지만 받는다', async () => {
+    const sleeps: number[] = []
+    const { app } = setup({
+      sleep: (ms) => {
+        sleeps.push(ms)
+        return Promise.resolve()
+      },
+    })
+    await app.request('/messages?delayMs=999999', { headers: auth })
+    expect(sleeps).toEqual([10_000])
+  })
+})
