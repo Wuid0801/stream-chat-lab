@@ -132,4 +132,11 @@ URL의 토큰은 브라우저 기록, 서버·프록시 접근 로그, `Referer`
 
 시간 값은 `scenarioOptions`(`firstTokenDelayMs`, `silenceMs`, `heartbeat`, `heartbeatMs`, `bufferMs`)로 바꿀 수 있다. 기본값은 DEMO_SPEC 4장 그대로이고, E2E는 몇 초 단위로 줄여서 쓴다.
 
-M4-2 예정: `out-of-order-history`, `duplicate-text` (클라이언트 쪽 시나리오)
+### 클라이언트 쪽 시나리오
+
+서버의 `scenario`가 아니라 요청 순서와 입력으로 만든다.
+
+| 시나리오               | 만드는 방법                                                                                           | 클라이언트 결과                                            |
+| ---------------------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `out-of-order-history` | `GET /messages?delayMs=`(web은 `?historyDelay=`)로 처음 히스토리 응답을 늦춤. 페이지는 응답 시점 기준 | 히스토리가 `final`보다 먼저 와도, 늦게 와도 중복·누락 없음 |
+| `duplicate-text`       | 같은 문장을 연속으로 보냄                                                                             | 두 메시지 모두 표시 (clientId로만 매칭)                    |
