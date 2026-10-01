@@ -7,7 +7,12 @@ import {
 } from '@stream-chat-lab/chat-protocol'
 import { describe, expect, it, vi } from 'vitest'
 import type { ChatApi } from '../api/types'
-import type { StreamHandlers, StreamTransport } from '../stream/transport'
+import type {
+  StreamErrorInfo,
+  StreamHandlers,
+  StreamTarget,
+  StreamTransport,
+} from '../stream/transport'
 import { createTurnController, type TurnCallbacks } from './controller'
 
 function deferred<T>() {
@@ -33,6 +38,7 @@ const message = (clientId: string, role: Message['role'], text: string): Message
 function setup() {
   const creates: ReturnType<typeof deferred<CreateTurnResponse>>[] = []
   const turnLookups: ReturnType<typeof deferred<TurnResponse>>[] = []
+  const renewals: ReturnType<typeof deferred<string>>[] = []
   const api: ChatApi = {
     createTurn: vi.fn(() => {
       const d = deferred<CreateTurnResponse>()
@@ -44,14 +50,18 @@ function setup() {
       turnLookups.push(d)
       return d.promise
     }),
+    renewStreamToken: vi.fn(() => {
+      const d = deferred<string>()
+      renewals.push(d)
+      return d.promise
+    }),
     getMessages: vi.fn(),
-    streamUrl: (turnId, token) => `/turns/${turnId}/stream?token=${token}`,
   }
 
-  const connections: { url: string; handlers: StreamHandlers; closed: boolean }[] = []
+  const connections: { target: StreamTarget; handlers: StreamHandlers; closed: boolean }[] = []
   const transport: StreamTransport = {
-    open(url, handlers) {
-      const conn = { url, handlers, closed: false }
+    open(target, handlers) {
+      const conn = { target, handlers, closed: false }
       connections.push(conn)
       return {
         close: () => {
@@ -67,7 +77,18 @@ function setup() {
     onFailed: vi.fn<TurnCallbacks['onFailed']>(),
   }
   const warn = vi.fn<(message: string) => void>()
-  const controller = createTurnController({ api, transport, callbacks, warn })
+  const sleeps: number[] = []
+  const controller = createTurnController({
+    api,
+    transport,
+    callbacks,
+    warn,
+    // 이어 받기 대기 시간은 기록만 하고 바로 넘어간다.
+    sleep: (ms) => {
+      sleeps.push(ms)
+      return Promise.resolve()
+    },
+  })
 
   /** n번째 준비 요청을 성공시키고 스트림이 열릴 때까지 기다린다 */
   async function connect(index: number, turnId = `t${index}`) {
@@ -80,8 +101,19 @@ function setup() {
     if (!c) throw new Error(`연결 ${i} 없음`)
     return c
   }
-  const emit = (i: number, event: StreamEvent) => conn(i).handlers.onEvent(event)
-  const fail = (i: number) => conn(i).handlers.onError()
+  let eventId = 0
+  const emit = (i: number, event: StreamEvent, id = String(++eventId)) =>
+    conn(i).handlers.onEvent(event, id)
+  const fail = (i: number, info: StreamErrorInfo = {}) => conn(i).handlers.onError(info)
+
+  /** 이어 받기용 토큰 재발급을 모두(3번) 실패시킨다 */
+  async function exhaustResume() {
+    for (let i = 0; i < 3; i++) {
+      await flush()
+      renewals[renewals.length - 1]?.reject(new Error('network'))
+    }
+    await flush()
+  }
 
   const finalEvent = (turnId: string, clientId: string): StreamEvent => ({
     type: 'final',
@@ -95,13 +127,16 @@ function setup() {
     controller,
     callbacks,
     warn,
+    sleeps,
     creates,
     turnLookups,
+    renewals,
     connections,
     connect,
     conn,
     emit,
     fail,
+    exhaustResume,
     finalEvent,
   }
 }
@@ -259,24 +294,43 @@ describe('끊김과 오탐 복구', () => {
     assistantMessage: message(replyClientId(clientId), 'assistant', '답'),
   })
 
-  it('토큰 없이 끊기면 서버 확인 없이 실패로 끝낸다', async () => {
+  it('토큰 없이 끊기면 이어 받기나 서버 확인 없이 실패로 끝낸다', async () => {
     const t = setup()
     t.controller.send('a', 'c1')
     await t.connect(0)
     t.fail(0)
     expect(t.conn(0).closed).toBe(true)
+    expect(t.api.renewStreamToken).not.toHaveBeenCalled()
     expect(t.api.getTurn).not.toHaveBeenCalled()
     expect(t.callbacks.onFailed).toHaveBeenCalledWith('c1', 'stream-failed')
   })
 
-  it('토큰을 받은 뒤 끊기고 서버에 완료돼 있으면 성공으로 복구한다', async () => {
+  it('401이면 unauthorized로 실패한다 (fetch 어댑터만 상태 코드를 안다)', async () => {
+    const t = setup()
+    t.controller.send('a', 'c1')
+    await t.connect(0)
+    t.fail(0, { status: 401 })
+    expect(t.callbacks.onFailed).toHaveBeenCalledWith('c1', 'unauthorized')
+  })
+
+  it('5xx면 server-error로 실패한다', async () => {
+    const t = setup()
+    t.controller.send('a', 'c1')
+    await t.connect(0)
+    t.fail(0, { status: 503 })
+    expect(t.callbacks.onFailed).toHaveBeenCalledWith('c1', 'server-error')
+  })
+
+  it('이어 받기에 모두 실패하면 서버 상태를 확인해, 완료돼 있으면 성공으로 복구한다', async () => {
     const t = setup()
     const result = t.controller.send('a', 'c1')
     await t.connect(0)
     t.emit(0, { type: 'token', turnId: 't0', seq: 0, text: '답' })
     t.fail(0)
-    // 연결은 즉시 닫는다. 자동 재연결 = 같은 턴 재구독을 막는다.
+    // 연결은 즉시 닫는다. 자동 재연결 = 같은 1회용 토큰 재사용을 막는다.
     expect(t.conn(0).closed).toBe(true)
+    await t.exhaustResume()
+    expect(t.api.renewStreamToken).toHaveBeenCalledTimes(3)
     expect(result.ok && result.turn.status).toBe('reconciling')
     expect(t.api.getTurn).toHaveBeenCalledWith('t0')
 
@@ -287,12 +341,13 @@ describe('끊김과 오탐 복구', () => {
     expect(result.ok && result.turn.status).toBe('completed')
   })
 
-  it('토큰을 받은 뒤 끊기고 서버에 완료돼 있지 않으면 실패로 끝낸다', async () => {
+  it('이어 받기에 모두 실패하고 서버에 완료돼 있지 않으면 실패로 끝낸다', async () => {
     const t = setup()
     t.controller.send('a', 'c1')
     await t.connect(0)
     t.emit(0, { type: 'token', turnId: 't0', seq: 0, text: '답' })
     t.fail(0)
+    await t.exhaustResume()
     t.turnLookups[0]?.resolve({
       ...completedTurn('c1'),
       status: 'streaming',
@@ -308,6 +363,7 @@ describe('끊김과 오탐 복구', () => {
     await t.connect(0)
     t.emit(0, { type: 'token', turnId: 't0', seq: 0, text: '답' })
     t.fail(0)
+    await t.exhaustResume()
     expect(t.controller.send('b', 'c2').ok).toBe(false)
     t.turnLookups[0]?.reject(new Error('network'))
     await flush()
@@ -315,7 +371,7 @@ describe('끊김과 오탐 복구', () => {
     expect(t.controller.send('b', 'c2').ok).toBe(true)
   })
 
-  it('done만 받고 끊기면 계약 위반을 경고하고 서버 상태로 복구한다', async () => {
+  it('done 뒤에 끊기면 이어 받지 않고, 계약 위반을 경고한 뒤 서버 상태로 복구한다', async () => {
     const t = setup()
     t.controller.send('a', 'c1')
     await t.connect(0)
@@ -323,6 +379,7 @@ describe('끊김과 오탐 복구', () => {
     t.emit(0, { type: 'done', turnId: 't0' })
     t.fail(0)
     expect(t.warn).toHaveBeenCalledWith(expect.stringContaining('계약 위반'))
+    expect(t.api.renewStreamToken).not.toHaveBeenCalled()
     t.turnLookups[0]?.resolve(completedTurn('c1'))
     await flush()
     expect(t.callbacks.onCompleted).toHaveBeenCalledTimes(1)
@@ -334,6 +391,7 @@ describe('끊김과 오탐 복구', () => {
     await t.connect(0)
     t.emit(0, { type: 'token', turnId: 't0', seq: 0, text: '답' })
     t.fail(0)
+    await t.exhaustResume()
     t.controller.dispose()
     t.turnLookups[0]?.resolve(completedTurn('c1'))
     await flush()
@@ -347,5 +405,100 @@ describe('끊김과 오탐 복구', () => {
     t.conn(0).handlers.onInvalid('{"type":"tool"}', 'unknown type')
     expect(t.warn).toHaveBeenCalledWith(expect.stringContaining('계약 위반'))
     expect(t.callbacks.onFailed).not.toHaveBeenCalled()
+  })
+})
+
+describe('이어 받기', () => {
+  it('토큰을 받은 뒤 끊기면 새 토큰으로 마지막 이벤트 id부터 다시 구독한다 (턴을 다시 만들지 않는다)', async () => {
+    const t = setup()
+    const result = t.controller.send('a', 'c1')
+    await t.connect(0)
+    t.emit(0, { type: 'token', turnId: 't0', seq: 0, text: '안' }, '1')
+    t.emit(0, { type: 'token', turnId: 't0', seq: 1, text: '녕' }, '2')
+    t.fail(0)
+    expect(result.ok && result.turn.status).toBe('resuming')
+    await flush()
+    t.renewals[0]?.resolve('renewed')
+    await flush()
+
+    expect(t.api.createTurn).toHaveBeenCalledTimes(1)
+    expect(t.conn(1).target).toEqual({ turnId: 't0', streamToken: 'renewed', lastEventId: '2' })
+    expect(result.ok && result.turn.status).toBe('streaming')
+  })
+
+  it('이어 받은 연결로 끝까지 받으면 완료된다', async () => {
+    const t = setup()
+    t.controller.send('a', 'c1')
+    await t.connect(0)
+    t.emit(0, { type: 'token', turnId: 't0', seq: 0, text: '답' })
+    t.fail(0)
+    await flush()
+    t.renewals[0]?.resolve('renewed')
+    await flush()
+    t.emit(1, { type: 'done', turnId: 't0' })
+    t.emit(1, t.finalEvent('t0', 'c1'))
+    expect(t.callbacks.onCompleted).toHaveBeenCalledTimes(1)
+    expect(t.warn).not.toHaveBeenCalled()
+  })
+
+  it('대기 시간을 0.5초 → 1초 → 2초로 늘린다', async () => {
+    const t = setup()
+    t.controller.send('a', 'c1')
+    await t.connect(0)
+    t.emit(0, { type: 'token', turnId: 't0', seq: 0, text: '답' })
+    t.fail(0)
+    await t.exhaustResume()
+    expect(t.sleeps).toEqual([500, 1000, 2000])
+  })
+
+  it('이벤트를 받으면 이어 받기 횟수를 다시 센다', async () => {
+    const t = setup()
+    t.controller.send('a', 'c1')
+    await t.connect(0)
+    t.emit(0, { type: 'token', turnId: 't0', seq: 0, text: 'a' })
+    t.fail(0)
+    await flush()
+    t.renewals[0]?.resolve('r1')
+    await flush()
+    t.emit(1, { type: 'token', turnId: 't0', seq: 1, text: 'b' })
+    t.fail(1)
+    await flush()
+    expect(t.sleeps).toEqual([500, 500])
+  })
+
+  it('이미 받은 seq의 토큰은 다시 전달하지 않는다', async () => {
+    const t = setup()
+    t.controller.send('a', 'c1')
+    await t.connect(0)
+    t.emit(0, { type: 'token', turnId: 't0', seq: 0, text: '안' })
+    t.emit(0, { type: 'token', turnId: 't0', seq: 0, text: '안' })
+    t.emit(0, { type: 'token', turnId: 't0', seq: 1, text: '녕' })
+    expect(t.callbacks.onToken.mock.calls).toEqual([
+      ['c1', '안'],
+      ['c1', '녕'],
+    ])
+  })
+
+  it('스트림으로 받은 텍스트와 final의 텍스트가 다르면 계약 위반을 경고한다', async () => {
+    const t = setup()
+    t.controller.send('a', 'c1')
+    await t.connect(0)
+    t.emit(0, { type: 'token', turnId: 't0', seq: 0, text: '다른 답' })
+    t.emit(0, t.finalEvent('t0', 'c1'))
+    expect(t.warn).toHaveBeenCalledWith(expect.stringContaining('계약 위반'))
+    expect(t.callbacks.onCompleted).toHaveBeenCalledTimes(1)
+  })
+
+  it('이어 받기를 기다리는 중에 취소하면 다시 구독하지 않는다', async () => {
+    const t = setup()
+    const result = t.controller.send('a', 'c1')
+    await t.connect(0)
+    t.emit(0, { type: 'token', turnId: 't0', seq: 0, text: '답' })
+    t.fail(0)
+    if (result.ok) result.turn.abort()
+    await flush()
+    t.renewals[0]?.resolve('late')
+    await flush()
+    expect(t.connections).toHaveLength(1)
   })
 })
