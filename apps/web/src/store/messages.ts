@@ -29,7 +29,8 @@ export const initialChatState: ChatState = { server: [], local: [], streaming: n
 /** id로 합치고 정렬한다. 같은 메시지를 여러 경로(히스토리, final, 상태 조회)로 받아도 한 번만 남는다. */
 function mergeServer(current: Message[], incoming: Message[]): Message[] {
   const byId = new Map(current.map((m) => [m.id, m]))
-  for (const m of incoming) byId.set(m.id, m)
+  // 서버 메시지는 저장된 뒤 바뀌지 않는다. 이미 있는 객체를 유지해야 표시용 객체도 유지된다.
+  for (const m of incoming) if (!byId.has(m.id)) byId.set(m.id, m)
   return [...byId.values()].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
 }
 
@@ -104,25 +105,44 @@ export interface DisplayMessage {
   failReason?: string
 }
 
+/**
+ * 원본 객체가 그대로면 표시용 객체도 그대로 돌려준다.
+ * 토큰 하나에 지난 메시지 전체의 표시용 객체가 새로 만들어지면 memo가 아무것도 막지 못한다.
+ */
+const displayCache = new WeakMap<Message | LocalMessage, DisplayMessage>()
+
+function cached(source: Message | LocalMessage, build: () => DisplayMessage): DisplayMessage {
+  let display = displayCache.get(source)
+  if (!display) {
+    display = build()
+    displayCache.set(source, display)
+  }
+  return display
+}
+
 /** 서버 메시지 → 로컬 메시지 → 스트리밍 말풍선 순으로 합친다. */
 export function selectDisplayMessages(state: ChatState): DisplayMessage[] {
-  const result: DisplayMessage[] = state.server.map((m) => ({
-    // 기준 구현(v0)은 서버 id를 key로 쓴다. 확정될 때 key가 바뀌어 리마운트된다. (M4의 v4에서 바꾼다)
-    key: m.id,
-    clientId: m.clientId,
-    role: m.role,
-    text: m.text,
-    status: 'sent',
-  }))
-  for (const m of state.local) {
-    result.push({
-      key: m.clientId,
+  const result: DisplayMessage[] = state.server.map((m) =>
+    cached(m, () => ({
+      // 기준 구현(v0)은 서버 id를 key로 쓴다. 확정될 때 key가 바뀌어 리마운트된다. (M4의 v4에서 바꾼다)
+      key: m.id,
       clientId: m.clientId,
-      role: 'user',
+      role: m.role,
       text: m.text,
-      status: m.status,
-      ...(m.failReason === undefined ? {} : { failReason: m.failReason }),
-    })
+      status: 'sent',
+    })),
+  )
+  for (const m of state.local) {
+    result.push(
+      cached(m, () => ({
+        key: m.clientId,
+        clientId: m.clientId,
+        role: 'user',
+        text: m.text,
+        status: m.status,
+        ...(m.failReason === undefined ? {} : { failReason: m.failReason }),
+      })),
+    )
   }
   if (state.streaming) {
     const clientId = replyClientId(state.streaming.clientId)

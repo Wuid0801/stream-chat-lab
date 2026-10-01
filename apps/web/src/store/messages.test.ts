@@ -113,3 +113,28 @@ describe('실패와 재시도', () => {
     expect(view(state)).toEqual(['user:pending:긴 질문'])
   })
 })
+
+describe('표시용 객체 유지 (memo가 동작하기 위한 조건)', () => {
+  it('토큰이 늘어나도 바뀌지 않은 서버 메시지는 같은 객체를 돌려준다', () => {
+    const history = [
+      serverMessage('seed-a', 'user', '예전'),
+      serverMessage('seed-b', 'assistant', '답'),
+    ]
+    const before = run(
+      { type: 'history-loaded', messages: history },
+      { type: 'send-started', clientId: 'c1', text: '새 질문' },
+    )
+    const after = chatReducer(before, { type: 'stream-token', clientId: 'c1', text: '토큰' })
+    const [a0, a1] = selectDisplayMessages(before)
+    const [b0, b1] = selectDisplayMessages(after)
+    expect(b0).toBe(a0)
+    expect(b1).toBe(a1)
+  })
+
+  it('같은 메시지를 히스토리로 다시 받아도 같은 객체를 돌려준다', () => {
+    const m = serverMessage('seed-c', 'user', '예전')
+    const first = run({ type: 'history-loaded', messages: [m] })
+    const second = chatReducer(first, { type: 'history-loaded', messages: [{ ...m }] })
+    expect(selectDisplayMessages(second)[0]).toBe(selectDisplayMessages(first)[0])
+  })
+})
