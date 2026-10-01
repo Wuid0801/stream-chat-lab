@@ -221,3 +221,48 @@ describe('GET /messages', () => {
     expect(new Set(ids).size).toBe(25)
   })
 })
+
+describe('측정 조건 (bench)', () => {
+  async function streamWith(body: Record<string, unknown>, sleeps: number[] = []) {
+    const app = createApp({
+      now: () => 0,
+      sleep: (ms) => {
+        sleeps.push(ms)
+        return Promise.resolve()
+      },
+      dropConnection: () => {},
+      seedMessageCount: 0,
+    })
+    const res = await app.request('/turns', {
+      method: 'POST',
+      headers: { ...auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId: 'c-1', text: 'hi', ...body }),
+    })
+    const json = createTurnResponseSchema.parse(await res.json())
+    return readEvents(await app.request(`/turns/${json.turnId}/stream?token=${json.streamToken}`))
+  }
+
+  it('replyTokens로 응답 토큰 수를 정한다', async () => {
+    const { events } = await streamWith({ replyTokens: 1500, seed: 3 })
+    const tokens = events.filter((e) => e.type === 'token')
+    expect(tokens).toHaveLength(1500)
+    const final = events.at(-1)
+    expect(final?.type === 'final' && final.assistantMessage.text).toBe(
+      tokens.map((e) => (e.type === 'token' ? e.text : '')).join(''),
+    )
+  })
+
+  it('tokensPerSecond로 토큰 간격을 정한다', async () => {
+    const sleeps: number[] = []
+    await streamWith({ replyTokens: 10, tokensPerSecond: 40 }, sleeps)
+    expect(sleeps.slice(0, 10)).toEqual(Array(10).fill(25))
+  })
+
+  it('GET /messages는 한 번에 200개까지 준다', async () => {
+    const { app } = setup({ seedMessageCount: 250 })
+    const page = messagesPageSchema.parse(
+      await (await app.request('/messages?limit=500', { headers: auth })).json(),
+    )
+    expect(page.messages).toHaveLength(200)
+  })
+})
