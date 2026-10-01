@@ -37,6 +37,9 @@ test('스트리밍 중 위로 스크롤하면 아래로 끌려 내려가지 않�
 
   const list = page.getByTestId('message-list')
   const lastMessage = page.getByTestId('message').last()
+  // 맨 위로 올리면 과거 페이지를 불러오며 위치 보정으로 scrollTop이 바뀐다. 그래서 바닥과의 거리로 확인한다.
+  const distanceFromBottom = () =>
+    list.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight)
   await list.evaluate((el) => el.scrollTo({ top: 0 }))
   const lengthAtScroll = (await lastMessage.textContent())?.length ?? 0
 
@@ -44,8 +47,8 @@ test('스트리밍 중 위로 스크롤하면 아래로 끌려 내려가지 않�
   await expect
     .poll(async () => (await lastMessage.textContent())?.length ?? 0)
     .toBeGreaterThan(lengthAtScroll)
-  expect(await list.evaluate((el) => el.scrollTop)).toBeLessThan(50)
+  expect(await distanceFromBottom()).toBeGreaterThan(200)
 
   await expectCompleted(page, text)
-  expect(await list.evaluate((el) => el.scrollTop)).toBeLessThan(50)
+  expect(await distanceFromBottom()).toBeGreaterThan(200)
 })
