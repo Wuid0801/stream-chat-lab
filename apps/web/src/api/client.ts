@@ -1,6 +1,7 @@
 import {
   createTurnResponseSchema,
   messagesPageSchema,
+  streamTokenResponseSchema,
   turnResponseSchema,
 } from '@stream-chat-lab/chat-protocol'
 import type { ChatApi } from './types'
@@ -50,9 +51,11 @@ export function createApiClient(options: { baseUrl: string; token: string }): Ch
       const query = params.size === 0 ? '' : `?${params.toString()}`
       return messagesPageSchema.parse(await request(`/messages${query}`))
     },
-    streamUrl(turnId, streamToken) {
-      // 네이티브 EventSource는 헤더를 넣을 수 없어 1회용 토큰을 쿼리로 보낸다. (docs/protocol.md)
-      return `${options.baseUrl}/turns/${encodeURIComponent(turnId)}/stream?token=${encodeURIComponent(streamToken)}`
+    async renewStreamToken(turnId) {
+      const body = await request(`/turns/${encodeURIComponent(turnId)}/stream-token`, {
+        method: 'POST',
+      })
+      return streamTokenResponseSchema.parse(body).streamToken
     },
   }
 }
