@@ -6,12 +6,15 @@
 
 ```
 POST /turns                    Authorization: Bearer <demo-token>
-  { clientId, text, scenario?, seed? }
+  { clientId, text, scenario?, scenarioOptions?, seed? }
   → { turnId, streamToken }
 
-GET  /turns/:id/stream?token=<streamToken>      (EventSource)
-GET  /turns/:id/stream  Authorization: Bearer <demo-token>   (fetch 스트림, M4)
+GET  /turns/:id/stream?token=<streamToken>[&lastEventId=N]                (EventSource)
+GET  /turns/:id/stream   Authorization: Bearer <demo-token>  [Last-Event-ID: N]   (fetch)
   → text/event-stream
+
+POST /turns/:id/stream-token   Authorization: Bearer <demo-token>
+  → { streamToken }            이어 받기용 새 1회용 토큰
 
 GET  /turns/:id                Authorization: Bearer <demo-token>
   → { id, clientId, status, userMessage, assistantMessage | null }
@@ -21,7 +24,7 @@ GET  /messages?cursor=&limit=  Authorization: Bearer <demo-token>
 ```
 
 - 사용자 메시지는 `POST /turns`에서 바로 저장된다. 응답 메시지는 생성이 끝났을 때 저장된다.
-- 스트림 연결이 중간에 끊겨도 서버는 생성을 끝까지 마치고 저장한다. 클라이언트는 `GET /turns/:id`로 결과를 확인할 수 있다.
+- **응답 생성은 연결과 따로 돈다.** 서버는 첫 구독 때 생성을 시작하고, 이벤트를 턴별 버퍼에 쌓는다. 연결이 끊겨도 생성은 끝까지 돌아 저장된다. ([decisions/011](decisions/011-resumable-stream.md))
 - 메시지를 GET 쿼리 스트링에 싣지 않는다. URL 길이 제한이나 서버·프록시 로그에 대화 내용이 남는 문제가 없다.
 
 ## 이벤트
@@ -29,6 +32,7 @@ GET  /messages?cursor=&limit=  Authorization: Bearer <demo-token>
 SSE의 `event:` 필드는 쓰지 않는다(모두 기본 `message`). 이벤트 종류는 `data` JSON의 `type`으로 구분한다.
 
 - 이유: `event: error`를 보내면 EventSource의 연결 오류 이벤트(`error`)와 이름이 겹쳐 둘을 구분할 수 없다. ([decisions/004](decisions/004-event-type-in-data.md))
+- 모든 이벤트에 `id:`가 붙는다. 턴 안에서 1부터 1씩 오른다. 이어 받기 위치로 쓴다.
 
 | type    | 필드                                        | 의미                                    |
 | ------- | ------------------------------------------- | --------------------------------------- |
@@ -45,35 +49,45 @@ token* → error
 ```
 
 - 클라이언트는 `final` 또는 `error`를 받으면 연결을 닫는다.
-- 그 뒤에 오는 이벤트와 연결 오류(`onerror`)는 무시한다.
+- 그 뒤에 오는 이벤트와 연결 오류는 무시한다.
 - `done`에서 연결을 닫지 않는다. 바로 뒤에 오는 `final`이 서버 확정 데이터(메시지 id 등)를 담고 있기 때문이다. (LEARNING.md 3장)
 
-### 계약 위반
+### 계약 위반 (클라이언트는 경고를 남긴다)
 
-- 스키마에 맞지 않는 `data`: 클라이언트는 경고를 남기고 그 이벤트를 무시한다.
-- `final` 없이 `done` 뒤에 연결이 닫힘: 클라이언트는 경고를 남기고 `GET /turns/:id`로 서버 상태를 확인해 복구한다.
+- 스키마에 맞지 않는 `data`: 그 이벤트를 무시한다.
+- `final` 없이 `done` 뒤에 연결이 닫힘: `GET /turns/:id`로 서버 상태를 확인해 복구한다.
+- `token`의 `seq`가 건너뜀: 빠진 범위를 경고한다. 이미 받은 `seq`는 무시한다.
+- 스트림으로 받은 텍스트와 `final`의 응답 텍스트가 다름: 확정 텍스트를 쓴다.
 
 ## 끊김 처리
 
-EventSource의 `onerror`는 실패뿐 아니라 서버가 정상적으로 연결을 닫을 때도 발생한다. 클라이언트는 다음 순서로 처리한다.
+연결 오류 알림은 실패뿐 아니라 서버가 정상적으로 연결을 닫을 때도 온다. 클라이언트는 다음 순서로 처리한다.
 
-1. 연결을 즉시 닫는다. 자동 재연결을 막기 위해서다. 같은 URL로 다시 연결하면 이미 쓴 1회용 토큰으로 재구독을 시도하게 된다.
+1. 연결을 즉시 닫는다. EventSource의 자동 재연결은 이미 쓴 1회용 토큰으로 같은 URL을 다시 요청하기 때문이다. 다시 구독할지는 클라이언트가 정한다.
 2. `final`을 이미 받았다면 아무것도 하지 않는다.
-3. `token`이나 `done`을 하나도 받지 못했다면 실패로 처리한다.
-4. 받은 적이 있다면 `GET /turns/:id`로 확인한다. `completed`이면 성공, 아니면 실패로 처리한다. (오탐 복구)
+3. 상태 코드가 401이면 `unauthorized`, 5xx면 `server-error`로 실패한다. 상태 코드는 fetch 어댑터만 알 수 있다.
+4. `done`을 받았다면 이어 받지 않고 `GET /turns/:id`로 확인한다. 생성은 끝났고 `final`만 빠진 상황이다.
+5. 아무 이벤트도 받지 못했다면 실패로 처리한다(`stream-failed`).
+6. `token`을 받는 중이었다면 **이어 받는다.**
+   - 0.5초 → 1초 → 2초를 기다리며 최대 3번 시도한다.
+   - 매번 `POST /turns/:id/stream-token`으로 새 토큰을 받고, 마지막으로 받은 이벤트 id부터 다시 구독한다.
+   - 이벤트를 하나라도 받으면 시도 횟수를 다시 센다.
+   - **턴을 다시 만들지 않는다.** 재연결이 재전송이 되지 않는다.
+7. 이어 받기를 모두 실패하면 `GET /turns/:id`로 확인한다. `completed`이면 성공, 아니면 실패로 처리한다. (오탐 복구)
 
-## 하트비트
+## 하트비트와 타임아웃
 
-- 서버는 `final`을 보낸 뒤 연결을 닫기 전까지 15초마다 주석 줄(`: ping`)을 보낸다.
-- 긴 침묵 중의 하트비트와 클라이언트 타임아웃 규칙은 M4(`long-silence` 시나리오)에서 정한다.
+- 서버는 이벤트가 `heartbeatMs`(기본 15초) 동안 없으면 주석 줄(`: ping`)을 보낸다. `final` 뒤에도 클라이언트가 닫을 때까지 보낸다.
+- **fetch 어댑터**는 바이트를 직접 읽으므로 하트비트를 볼 수 있다. `idleTimeout`(기본 45초 = 하트비트 3번) 동안 아무 바이트도 오지 않으면 끊긴 것으로 보고 위의 끊김 처리로 넘어간다.
+- **네이티브 EventSource**는 주석 줄을 이벤트로 넘기지 않아 하트비트를 볼 수 없다. 그래서 idle 타임아웃을 두지 않고, 연결 유지는 브라우저에 맡긴다. ([decisions/012](decisions/012-eventsource-vs-fetch.md))
 
 ## 인증
 
 - API 요청은 `Authorization: Bearer <demo-token>` 헤더로 인증한다. 데모용 고정 토큰이다.
-- 스트림 구독은 `POST /turns`가 돌려준 `streamToken`을 쿼리로 보낸다.
+- EventSource 어댑터는 `POST /turns` 또는 `POST /turns/:id/stream-token`이 돌려준 `streamToken`을 쿼리로 보낸다.
   - 네이티브 EventSource는 요청 헤더를 넣을 수 없기 때문이다.
   - `streamToken`은 **60초 안에 한 번만** 쓸 수 있고, 발급된 턴에만 쓸 수 있다.
-- fetch 스트림 어댑터(M4)는 같은 엔드포인트를 헤더로 인증한다.
+- fetch 어댑터는 같은 엔드포인트를 헤더로 인증한다. URL에 토큰을 넣지 않는다.
 
 ### 트레이드오프
 
@@ -82,13 +96,14 @@ URL의 토큰은 브라우저 기록, 서버·프록시 접근 로그, `Referer`
 - 로그에 남은 토큰은 이미 쓰였거나 곧 만료된다.
 - 토큰 하나로 열 수 있는 것은 그 턴의 스트림 하나뿐이다.
 
-대가로 EventSource의 자동 재연결은 항상 401로 실패한다. 이 저장소는 자동 재연결을 쓰지 않으므로(위 "끊김 처리") 문제가 되지 않는다.
+대가로 EventSource의 자동 재연결은 항상 401로 실패한다. 이 저장소는 자동 재연결을 쓰지 않고, 이어 받을 때마다 새 토큰을 받는다.
 
 ## 재전송 (같은 clientId)
 
-같은 `clientId`로 `POST /turns`를 다시 보내는 경우 ([decisions/007](decisions/007-idempotent-turn-by-client-id.md))
+같은 `clientId`로 `POST /turns`를 다시 보내는 경우 ([decisions/007](decisions/007-idempotent-turn-by-client-id.md), [013](decisions/013-retry-failed-turn.md))
 
-- 완료된 턴이 있으면 새 턴을 만들지 않고 같은 `turnId`와 새 `streamToken`을 준다. 그 스트림은 `final`만 보낸다.
+- 완료된 턴이 있으면 새 턴을 만들지 않고 같은 `turnId`와 새 `streamToken`을 준다. 처음부터 구독하면 `final`만 보낸다.
+- 응답을 만들기 전에 실패한 턴(`failed`)이 있으면 **같은 턴을 다시 쓴다.** 사용자 메시지가 중복되지 않는다.
 - 진행 중인 턴이 있으면 `409 turn-in-progress`
 
 ## 식별자
@@ -99,21 +114,22 @@ URL의 토큰은 브라우저 기록, 서버·프록시 접근 로그, `Referer`
 
 ## 장애 시나리오
 
-`POST /turns`의 `scenario`로 고른다. web은 페이지 URL의 `?scenario=&seed=`를 그대로 보낸다. 같은 `seed`는 같은 응답(토큰 분할, 속도)을 만든다.
+`POST /turns`의 `scenario`로 고른다. web은 페이지 URL의 `?scenario=&seed=`를 그대로 보낸다. 같은 `seed`는 같은 응답(토큰 분할, 속도, 바이트 분할)을 만든다. **끊기와 HTTP 오류는 첫 구독에만 적용**한다. 이어 받기와 재시도는 성공할 수 있어야 하기 때문이다.
 
-| 시나리오            | 서버 동작                                           | 클라이언트 결과                     |
-| ------------------- | --------------------------------------------------- | ----------------------------------- |
-| `normal`            | token(20~60/s) → done → final, 연결 유지 + 하트비트 | 정상 완료                           |
-| `done-only`         | token → done 후 close (final 없음), 서버 저장 완료  | 계약 위반 경고 + 서버 확인으로 복구 |
-| `close-after-final` | token → done → final 직후 close                     | 오류 없음                           |
-| `drop-after-saved`  | token → 서버 저장 → done/final 전에 TCP 끊기        | 오탐 오류 없이 성공 복구            |
+| 시나리오            | 서버 동작                                                    | 클라이언트 결과                                                            |
+| ------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| `normal`            | token(20~60/s) → done → final, 연결 유지 + 하트비트          | 정상 완료                                                                  |
+| `done-only`         | token → done 후 close (final 없음), 서버 저장 완료           | 계약 위반 경고 + 서버 확인으로 복구                                        |
+| `close-after-final` | token → done → final 직후 close                              | 오류 없음                                                                  |
+| `drop-after-saved`  | token → 서버 저장 → done 전에 TCP 끊기                       | 이어 받아 done/final 수신, 오탐 오류 없음                                  |
+| `drop-mid-stream`   | 토큰 1/3 지점에서 TCP 끊기 (생성은 계속)                     | `lastEventId`부터 이어 받기, 턴 재생성 없음                                |
+| `slow-first-token`  | 첫 토큰까지 5~15초 (`firstTokenDelayMs`)                     | 대기 표시 유지, 타임아웃 없음                                              |
+| `long-silence`      | 응답 중간 60초 침묵 (`silenceMs`), 하트비트 on/off           | on: 연결 유지. off: fetch는 idle 타임아웃 후 이어 받기, EventSource는 유지 |
+| `http-401`          | 스트림 시작 시 401, 턴은 `failed`                            | fetch: 재인증 안내. EventSource: 일반 실패. 재시도하면 같은 턴으로 성공    |
+| `http-5xx`          | 스트림 시작 시 503, 턴은 `failed`                            | fetch: 서버 오류 안내. EventSource: 일반 실패. 재시도하면 성공             |
+| `chunk-chaos`       | 1~7바이트 무작위 분할, 줄바꿈(`\n`, `\r\n`, `\r`) 혼용, 주석 | 깨짐 없이 표시, 확정 텍스트와 같음                                         |
+| `proxy-buffering`   | 이벤트를 `bufferMs`(기본 2초)씩 모아 한 번에 전송            | 몰려서 표시되지만 내용 정확                                                |
 
-M4 예정: `slow-first-token`, `long-silence`, `drop-mid-stream`, `http-401`, `http-5xx`, `chunk-chaos`, `proxy-buffering`, `out-of-order-history`, `duplicate-text`
+시간 값은 `scenarioOptions`(`firstTokenDelayMs`, `silenceMs`, `heartbeat`, `heartbeatMs`, `bufferMs`)로 바꿀 수 있다. 기본값은 DEMO_SPEC 4장 그대로이고, E2E는 몇 초 단위로 줄여서 쓴다.
 
-## M4 예정: 이어 받기
-
-이벤트마다 `id:`를 붙이고, 서버는 턴별 이벤트 버퍼를 보관한다. 1회용 토큰을 유지하면서 이어 받기 위한 계획은 다음과 같다.
-
-- 재구독할 때 `POST /turns/:id/stream-token`으로 새 토큰을 받는다.
-- EventSource 어댑터는 `?lastEventId=` 쿼리로 위치를 보낸다. 새로 만든 EventSource는 `Last-Event-ID` 헤더를 직접 넣을 수 없기 때문이다.
-- fetch 어댑터는 `Last-Event-ID` 헤더로 보낸다.
+M4-2 예정: `out-of-order-history`, `duplicate-text` (클라이언트 쪽 시나리오)
