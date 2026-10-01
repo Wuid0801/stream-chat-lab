@@ -1,4 +1,4 @@
-import type { Message, Scenario, StreamEvent } from '@stream-chat-lab/chat-protocol'
+import type { CreateTurnRequest, Message, StreamEvent } from '@stream-chat-lab/chat-protocol'
 import type { ChatApi } from '../api/types'
 import type { StreamConnection, StreamTransport } from '../stream/transport'
 
@@ -25,10 +25,12 @@ export interface TurnControllerOptions {
   api: ChatApi
   transport: StreamTransport
   callbacks: TurnCallbacks
-  scenario?: Scenario
-  seed?: number
+  /** 턴 생성 요청에 함께 보낼 값 (시나리오, seed, 측정 조건) */
+  turnRequest?: TurnRequestOptions
   warn?: (message: string) => void
 }
+
+export type TurnRequestOptions = Omit<CreateTurnRequest, 'clientId' | 'text'>
 
 export type SendResult = { ok: true; turn: Turn } | { ok: false; reason: 'busy' }
 
@@ -124,12 +126,7 @@ export function createTurnController(options: TurnControllerOptions) {
     async function start(): Promise<void> {
       try {
         const created = await api.createTurn(
-          {
-            clientId,
-            text,
-            ...(options.scenario === undefined ? {} : { scenario: options.scenario }),
-            ...(options.seed === undefined ? {} : { seed: options.seed }),
-          },
+          { ...options.turnRequest, clientId, text },
           abortController.signal,
         )
         // 준비 중에 취소됐다면 연결을 만들지 않는다.

@@ -43,8 +43,11 @@ export function createApiClient(options: { baseUrl: string; token: string }): Ch
     async getTurn(turnId) {
       return turnResponseSchema.parse(await request(`/turns/${encodeURIComponent(turnId)}`))
     },
-    async getMessages(cursor) {
-      const query = cursor === undefined ? '' : `?cursor=${encodeURIComponent(cursor)}`
+    async getMessages(page = {}) {
+      const params = new URLSearchParams()
+      if (page.cursor !== undefined) params.set('cursor', page.cursor)
+      if (page.limit !== undefined) params.set('limit', String(page.limit))
+      const query = params.size === 0 ? '' : `?${params.toString()}`
       return messagesPageSchema.parse(await request(`/messages${query}`))
     },
     streamUrl(turnId, streamToken) {
