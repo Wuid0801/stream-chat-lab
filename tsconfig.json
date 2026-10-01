@@ -8,6 +8,9 @@
       "path": "./packages/chat-protocol"
     },
     {
+      "path": "./packages/bench"
+    },
+    {
       "path": "./apps/web"
     },
     {
