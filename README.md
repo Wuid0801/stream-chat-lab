@@ -26,18 +26,31 @@ SSE 토큰 스트리밍 채팅에서 끊김, 오탐, 중복, 렌더 비용을 �
 
 ```bash
 yarn install
+yarn dev         # mock-server(8787) + web(5173)
 yarn lint        # ESLint + Prettier 검사
 yarn typecheck   # tsc -b
-yarn test        # Vitest
+yarn test        # Vitest 단위 테스트
+yarn e2e         # Playwright E2E (mock-server와 web을 함께 띄운다)
 ```
 
-`yarn dev`, `?scenario=`, `?v=` 사용법은 작성 예정.
+E2E를 처음 실행할 때는 브라우저를 설치한다: `yarn playwright install chromium`
+
+장애 시나리오는 URL로 고른다. 같은 `seed`는 같은 응답을 만든다.
+
+```
+http://localhost:5173/?scenario=normal&seed=11
+http://localhost:5173/?scenario=done-only&seed=11
+http://localhost:5173/?scenario=close-after-final&seed=11
+http://localhost:5173/?scenario=drop-after-saved&seed=11
+```
+
+시나리오별 서버 동작과 기대 결과는 [`docs/protocol.md`](docs/protocol.md)에 있다. `?v=`(렌더 비교 버전) 사용법은 작성 예정.
 
 ## 구조
 
 ```
-apps/web               React 19 + Vite 채팅 클라이언트 (M2)
-apps/mock-server       Hono 목 서버, 장애 시나리오 (M2)
+apps/web               React 19 + Vite 채팅 클라이언트
+apps/mock-server       Hono 목 서버, 장애 시나리오
 packages/sse-parser    프레임워크와 무관한 SSE 스트리밍 파서
-packages/chat-protocol 이벤트 타입과 스키마 (M2)
+packages/chat-protocol 이벤트 타입과 zod 스키마 (클라이언트·서버 공유)
 ```

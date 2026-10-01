@@ -28,3 +28,6 @@ DEMO_SPEC은 pnpm 모노레포를 전제로 했다. 앱 2개(web, mock-server)�
 - Yarn 1은 hoisting 때문에 **선언하지 않은 의존성을 import해도 동작한다.** 경계가 깨져도 로컬에서는 드러나지 않는다. 문제가 실제로 생기면 ESLint `no-extraneous-dependencies` 규칙을 추가한다.
 - Yarn 1은 `workspace:*` 프로토콜이 없다. 내부 패키지는 `"*"` 버전 범위로 참조한다.
 - Yarn 1은 유지보수만 되는 상태다. 새 프로젝트에 classic을 쓴 이유를 설명해야 할 수 있다.
+- **package.json 스크립트 안에서 `yarn`을 다시 부르지 않는다** (M2에서 추가).
+  - Windows에서 `corepack enable`로 설치된 yarn shim이 PATH 앞에 있으면 문제가 생긴다. cmd.exe(코드페이지 949)를 거친 하위 프로세스에서 비ASCII 사용자 경로가 깨져 shim이 `yarn.js`를 찾지 못한다.
+  - 그래서 `dev`, `e2e`, Playwright `webServer`는 `tsx`, `vite`, `playwright` 바이너리를 직접 부른다.
