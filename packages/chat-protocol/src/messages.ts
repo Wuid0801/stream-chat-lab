@@ -29,6 +29,10 @@ export const createTurnRequestSchema = z.object({
   text: z.string().min(1),
   scenario: scenarioSchema.optional(),
   seed: z.number().int().optional(),
+  /** 측정용: 응답 토큰 수 (기본: seed로 정함) */
+  replyTokens: z.number().int().min(1).max(10_000).optional(),
+  /** 측정용: 초당 토큰 수 (기본: seed로 20~60 사이에서 정함) */
+  tokensPerSecond: z.number().positive().max(1000).optional(),
 })
 export type CreateTurnRequest = z.infer<typeof createTurnRequestSchema>
 

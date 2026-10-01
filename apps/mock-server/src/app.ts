@@ -54,7 +54,7 @@ export function createApp(options: AppOptions) {
     const body = createTurnRequestSchema.safeParse(await c.req.json().catch(() => null))
     if (!body.success) return c.json({ code: 'bad-request', message: body.error.message }, 400)
 
-    const { clientId, text, scenario = 'normal', seed } = body.data
+    const { clientId, text, scenario = 'normal', seed, replyTokens, tokensPerSecond } = body.data
     // 같은 clientId 재전송이 응답을 두 번 만들지 않게 한다. (docs/decisions/007)
     const existing = store.findTurnByClientId(clientId)
     if (existing?.status === 'streaming') {
@@ -62,7 +62,16 @@ export function createApp(options: AppOptions) {
     }
     const turn =
       existing ??
-      store.createTurn({ clientId, text, scenario, seed: seed ?? baseSeed + ++turnCount })
+      store.createTurn({
+        clientId,
+        text,
+        scenario,
+        seed: seed ?? baseSeed + ++turnCount,
+        replyOptions: {
+          ...(replyTokens === undefined ? {} : { tokens: replyTokens }),
+          ...(tokensPerSecond === undefined ? {} : { tokensPerSecond }),
+        },
+      })
     const response: CreateTurnResponse = {
       turnId: turn.id,
       streamToken: streamTokens.issue(turn.id),
@@ -90,7 +99,8 @@ export function createApp(options: AppOptions) {
 
   app.get('/messages', (c) => {
     if (!hasDemoToken(c)) return unauthorized(c)
-    const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 20) || 20, 1), 100)
+    // 측정(bench)에서 메시지 200개를 한 번에 불러오므로 최대 200개까지 준다.
+    const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 20) || 20, 1), 200)
     return c.json(store.page(c.req.query('cursor'), limit))
   })
 
@@ -112,7 +122,7 @@ export function createApp(options: AppOptions) {
       return
     }
 
-    const reply = generateReply(turn.seed)
+    const reply = generateReply(turn.seed, turn.replyOptions)
     for (const [seq, text] of reply.tokens.entries()) {
       if (stream.aborted) break
       await send({ type: 'token', turnId: turn.id, seq, text })

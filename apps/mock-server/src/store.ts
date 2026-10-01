@@ -5,13 +5,14 @@ import {
   type TurnResponse,
   type TurnStatus,
 } from '@stream-chat-lab/chat-protocol'
-import { seedConversation } from './reply'
+import { seedConversation, type ReplyOptions } from './reply'
 
 export interface TurnRecord {
   id: string
   clientId: string
   scenario: Scenario
   seed: number
+  replyOptions: ReplyOptions
   status: TurnStatus
   userMessage: Message
   assistantMessage: Message | null
@@ -51,12 +52,14 @@ export function createStore(options: {
       text: string
       scenario: Scenario
       seed: number
+      replyOptions: ReplyOptions
     }): TurnRecord {
       const turn: TurnRecord = {
         id: `t${String(++turnSeq).padStart(6, '0')}`,
         clientId: input.clientId,
         scenario: input.scenario,
         seed: input.seed,
+        replyOptions: input.replyOptions,
         status: 'streaming',
         userMessage: addMessage('user', input.clientId, input.text),
         assistantMessage: null,

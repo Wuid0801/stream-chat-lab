@@ -16,18 +16,38 @@ const SENTENCES = [
 
 export interface Reply {
   tokens: string[]
-  /** 토큰 사이 간격. 20~60 tokens/s */
+  /** 토큰 사이 간격 */
   intervalMs: number
 }
 
+export interface ReplyOptions {
+  /** 응답 토큰 수. 없으면 seed로 3~6문장을 고른다. */
+  tokens?: number
+  /** 초당 토큰 수. 없으면 seed로 20~60 사이에서 정한다. */
+  tokensPerSecond?: number
+}
+
+/** 실제 모델처럼 단어 조각 단위로 자른다. 이어 붙이면 원문과 같다. */
+const toTokens = (text: string) => text.match(/\s*\S{1,3}/g) ?? []
+
 /** seed가 같으면 같은 응답(토큰 분할과 속도 포함)을 만든다. */
-export function generateReply(seed: number): Reply {
+export function generateReply(seed: number, options: ReplyOptions = {}): Reply {
   const random = seededRandom(seed)
-  const count = 3 + Math.floor(random() * 4)
-  const text = Array.from({ length: count }, () => pick(random, SENTENCES)).join(' ')
-  // 실제 모델처럼 단어 조각 단위로 자른다. 이어 붙이면 원문과 같다.
-  const tokens = text.match(/\s*\S{1,3}/g) ?? []
-  const tokensPerSecond = 20 + random() * 40
+  let tokens: string[]
+  if (options.tokens === undefined) {
+    const count = 3 + Math.floor(random() * 4)
+    tokens = toTokens(Array.from({ length: count }, () => pick(random, SENTENCES)).join(' '))
+  } else {
+    // 측정용: 정해진 토큰 수가 될 때까지 문장을 이어 붙인 뒤 자른다.
+    const text: string[] = []
+    tokens = []
+    while (tokens.length < options.tokens) {
+      text.push(pick(random, SENTENCES))
+      tokens = toTokens(text.join(' '))
+    }
+    tokens = tokens.slice(0, options.tokens)
+  }
+  const tokensPerSecond = options.tokensPerSecond ?? 20 + random() * 40
   return { tokens, intervalMs: 1000 / tokensPerSecond }
 }
 
