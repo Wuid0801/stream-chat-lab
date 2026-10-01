@@ -28,6 +28,26 @@ export function collectConsole(page: Page) {
   return { errors, warnings }
 }
 
+export const TRANSPORTS = ['eventsource', 'fetch'] as const
+export type TransportName = (typeof TRANSPORTS)[number]
+
+/** 턴 생성과 스트림 구독 요청을 기록한다. "재연결 = 재전송"이 아닌지 확인하는 데 쓴다. */
+export function collectTurnRequests(page: Page) {
+  const creates: string[] = []
+  const streams: { url: URL; lastEventId: string | null }[] = []
+  page.on('request', (request) => {
+    const url = new URL(request.url())
+    if (request.method() === 'POST' && url.pathname === '/turns') creates.push(request.url())
+    if (request.method() === 'GET' && /^\/turns\/[^/]+\/stream$/.test(url.pathname)) {
+      // EventSource는 쿼리로, fetch 어댑터는 헤더로 위치를 보낸다.
+      const lastEventId =
+        url.searchParams.get('lastEventId') ?? request.headers()['last-event-id'] ?? null
+      streams.push({ url, lastEventId })
+    }
+  })
+  return { creates, streams }
+}
+
 export const userMessage = (page: Page, text: string) =>
   page.locator('[data-role="user"]').filter({ hasText: text })
 
@@ -36,8 +56,9 @@ export const failed = (page: Page) => page.locator('[data-status="failed"]')
 
 /** 응답이 확정될 때까지 기다리고, 마지막 메시지가 확정된 응답인지 확인한다. */
 export async function expectCompleted(page: Page, text: string): Promise<void> {
-  await expect(streaming(page)).toHaveCount(0, { timeout: 15_000 })
-  await expect(userMessage(page, text)).toHaveAttribute('data-status', 'sent')
+  // 사용자 메시지는 턴이 확정될 때 sent가 된다. 스트리밍 말풍선은 첫 토큰 전에도 0개라서 기준으로 쓰지 않는다.
+  await expect(userMessage(page, text)).toHaveAttribute('data-status', 'sent', { timeout: 20_000 })
+  await expect(streaming(page)).toHaveCount(0)
   const last = page.getByTestId('message').last()
   await expect(last).toHaveAttribute('data-role', 'assistant')
   await expect(last).toHaveAttribute('data-status', 'sent')
