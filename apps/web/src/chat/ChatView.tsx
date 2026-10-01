@@ -6,6 +6,7 @@ import { createTokenBatcher } from '../stream/token-batcher'
 import type { StreamTransport } from '../stream/transport'
 import {
   createTurnController,
+  type Turn,
   type TurnController,
   type TurnRequestOptions,
 } from '../turn/controller'
@@ -39,6 +40,8 @@ export function ChatView({
   const [state, dispatch] = useReducer(chatReducer, initialChatState)
   const [historyError, setHistoryError] = useState(false)
   const controllerRef = useRef<TurnController | null>(null)
+  /** 진행 중인 턴. 중지 버튼이 쓴다. */
+  const turnRef = useRef<Turn | null>(null)
 
   useEffect(() => {
     // v2부터 토큰을 프레임 단위로 모은다. 확정·실패를 반영하기 전에는 남은 토큰을 먼저 내보낸다.
@@ -112,6 +115,7 @@ export function ChatView({
   function startTurn(clientId: string, text: string) {
     const result = controllerRef.current?.send(text, clientId)
     if (!result?.ok) return
+    turnRef.current = result.turn
     if (bench) {
       bench.sentAt = performance.now()
       bench.mountsAtSend = bench.mounts
@@ -126,7 +130,9 @@ export function ChatView({
       const failed = local.find((m) => m.clientId === clientId && m.status === 'failed')
       if (!failed) return
       const result = controllerRef.current?.send(failed.text, clientId)
-      if (result?.ok) dispatch({ type: 'send-started', clientId, text: failed.text })
+      if (!result?.ok) return
+      turnRef.current = result.turn
+      dispatch({ type: 'send-started', clientId, text: failed.text })
     },
     [local],
   )
@@ -175,7 +181,11 @@ export function ChatView({
       ) : (
         list
       )}
-      <Composer disabled={busy} onSend={(text) => startTurn(crypto.randomUUID(), text)} />
+      <Composer
+        busy={busy}
+        onSend={(text) => startTurn(crypto.randomUUID(), text)}
+        onStop={() => turnRef.current?.cancel()}
+      />
     </div>
   )
 }

@@ -2,14 +2,15 @@ import { useState } from 'react'
 import { shouldSubmit } from './keys'
 
 interface Props {
-  /** 진행 중인 턴이 있으면 보낼 수 없다. 입력은 계속할 수 있다. */
-  disabled: boolean
+  /** 진행 중인 턴이 있으면 보낼 수 없다. 입력은 계속할 수 있고, 대신 중지 버튼을 보인다. */
+  busy: boolean
   onSend(text: string): void
+  onStop(): void
 }
 
-export function Composer({ disabled, onSend }: Props) {
+export function Composer({ busy, onSend, onStop }: Props) {
   const [text, setText] = useState('')
-  const canSend = !disabled && text.trim() !== ''
+  const canSend = !busy && text.trim() !== ''
 
   function submit() {
     if (!canSend) return
@@ -44,9 +45,15 @@ export function Composer({ disabled, onSend }: Props) {
           submit()
         }}
       />
-      <button type="submit" disabled={!canSend}>
-        보내기
-      </button>
+      {busy ? (
+        <button type="button" className="composer__stop" onClick={onStop}>
+          중지
+        </button>
+      ) : (
+        <button type="submit" disabled={!canSend}>
+          보내기
+        </button>
+      )}
     </form>
   )
 }

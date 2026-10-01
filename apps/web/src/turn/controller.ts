@@ -3,7 +3,14 @@ import type { ChatApi } from '../api/types'
 import type { StreamConnection, StreamErrorInfo, StreamTransport } from '../stream/transport'
 
 export type TurnStatus =
-  'preparing' | 'streaming' | 'resuming' | 'reconciling' | 'completed' | 'failed' | 'aborted'
+  | 'preparing'
+  | 'streaming'
+  | 'resuming'
+  | 'reconciling'
+  | 'cancelling'
+  | 'completed'
+  | 'failed'
+  | 'aborted'
 
 /** 한 번의 "보내기 → 스트림 → 서버 상태 확인"을 끝까지 소유하는 객체 */
 export interface Turn {
@@ -13,6 +20,11 @@ export interface Turn {
   readonly status: TurnStatus
   /** 진행 중인 턴을 취소한다. 사용자 메시지는 failed('aborted')로 남는다. */
   abort(): void
+  /**
+   * 사용자가 중지한다. 서버가 거기까지의 응답을 저장하고, 그 응답으로 완료한다. (docs/decisions/016)
+   * 서버에 턴이 아직 없으면(준비 중) abort와 같다.
+   */
+  cancel(): void
 }
 
 export interface TurnCallbacks {
@@ -69,6 +81,8 @@ export function createTurnController(options: TurnControllerOptions) {
     let nextSeq = 0
     let streamedText = ''
     let resumeAttempts = 0
+    /** 중지를 요청한 뒤에는 스트림 콜백과 이어 받기를 멈춘다. 결과는 중지 응답이 정한다. */
+    const isLive = () => isCurrent() && status !== 'cancelling'
 
     /** 턴을 끝낸다. 연결을 닫고, 세대를 올려 늦게 오는 콜백을 막고, 예약을 푼다. */
     function end(next: TurnStatus): void {
@@ -122,16 +136,16 @@ export function createTurnController(options: TurnControllerOptions) {
         { turnId: id, streamToken, lastEventId },
         {
           onEvent: (event, eventId) => {
-            if (!isCurrent()) return
+            if (!isLive()) return
             lastEventId = eventId
             resumeAttempts = 0
             handleEvent(event)
           },
           onInvalid: (data, reason) => {
-            if (isCurrent()) warn(`[stream] 계약 위반: 해석할 수 없는 이벤트 (${reason}): ${data}`)
+            if (isLive()) warn(`[stream] 계약 위반: 해석할 수 없는 이벤트 (${reason}): ${data}`)
           },
           onError: (info) => {
-            if (isCurrent()) void handleDisconnect(id, info)
+            if (isLive()) void handleDisconnect(id, info)
           },
         },
       )
@@ -142,7 +156,7 @@ export function createTurnController(options: TurnControllerOptions) {
       status = 'reconciling'
       try {
         const turn = await api.getTurn(id)
-        if (!isCurrent()) return
+        if (!isLive()) return
         if (turn.status === 'completed' && turn.assistantMessage) {
           complete(turn.userMessage, turn.assistantMessage)
         } else {
@@ -172,14 +186,14 @@ export function createTurnController(options: TurnControllerOptions) {
       resumeAttempts++
       status = 'resuming'
       await sleep(delay)
-      if (!isCurrent()) return
+      if (!isLive()) return
       try {
         const streamToken = await api.renewStreamToken(id)
-        if (!isCurrent()) return
+        if (!isLive()) return
         status = 'streaming'
         openStream(id, streamToken)
       } catch {
-        if (isCurrent()) await handleDisconnect(id, { reason: 'network' })
+        if (isLive()) await handleDisconnect(id, { reason: 'network' })
       }
     }
 
@@ -215,6 +229,27 @@ export function createTurnController(options: TurnControllerOptions) {
         if (!isCurrent()) return
         end('aborted')
         callbacks.onFailed(clientId, 'aborted')
+      },
+      cancel() {
+        if (!isLive()) return
+        const id = turnId
+        if (id === null) return turn.abort()
+        connection?.close()
+        connection = null
+        status = 'cancelling'
+        void (async () => {
+          try {
+            const stopped = await api.cancelTurn(id)
+            if (!isCurrent()) return
+            if (stopped.status === 'completed' && stopped.assistantMessage) {
+              complete(stopped.userMessage, stopped.assistantMessage)
+            } else {
+              fail('cancel-failed')
+            }
+          } catch {
+            if (isCurrent()) fail('cancel-failed')
+          }
+        })()
       },
     }
     return { ok: true, turn }

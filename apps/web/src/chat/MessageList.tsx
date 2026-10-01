@@ -19,6 +19,14 @@ interface Props {
   onCopy(text: string): void
 }
 
+/**
+ * "새 메시지 ↓" 버튼. 토큰마다 바뀔 수 있어서 React 상태 대신 DOM 속성만 바꾼다.
+ * (상태로 두면 바닥에서 떨어져 있는 동안 토큰마다 목록 전체가 한 번 더 렌더된다)
+ */
+function setVisible(button: HTMLButtonElement | null, visible: boolean) {
+  if (button && button.hidden === visible) button.hidden = !visible
+}
+
 /** 위로 불러오기 직전의 스크롤 상태 */
 interface ScrollSnapshot {
   height: number
@@ -48,6 +56,7 @@ export function MessageList({
   })
   const loadingRef = useRef(false)
   const pendingCorrectionRef = useRef<ScrollSnapshot | null>(null)
+  const newMessagesRef = useRef<HTMLButtonElement>(null)
 
   /** 현재 스크롤 위치로 "바닥 따라가기" 여부를 갱신한다. */
   function updateFollow(el: HTMLDivElement) {
@@ -56,8 +65,20 @@ export function MessageList({
     lastScrollTopRef.current = el.scrollTop
     // 바닥 근처면 따라가기를 켠다. 끄는 것은 사용자가 위로 올렸을 때뿐이다.
     // smooth 스크롤이 진행되는 동안에도 거리가 잠시 멀어지므로, 거리만 보면 따라가기가 꺼진다.
-    if (distance <= BOTTOM_THRESHOLD) followRef.current = true
-    else if (movedUp) followRef.current = false
+    if (distance <= BOTTOM_THRESHOLD) {
+      followRef.current = true
+      setVisible(newMessagesRef.current, false)
+    } else if (movedUp) {
+      followRef.current = false
+    }
+  }
+
+  function jumpToBottom() {
+    const el = listRef.current
+    if (!el) return
+    followRef.current = true
+    setVisible(newMessagesRef.current, false)
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
   }
 
   // v5: 과거 페이지가 DOM에 반영된 직후, 페인트 전에 보정한다. (docs/decisions/015)
@@ -82,10 +103,14 @@ export function MessageList({
     // scroll 이벤트는 다음 프레임에 온다. 사용자가 방금 위로 올렸는데 그 사이에 토큰이 도착하면,
     // 이벤트만 믿고 내려 버리게 된다. 그래서 렌더 시점에 위치를 다시 확인한다.
     updateFollow(el)
-    if (!followRef.current) return
     // 위에 과거 페이지만 붙었으면(마지막 메시지가 그대로) 내리지 않는다.
     const bottomChanged =
       prevCount === 0 || last?.key !== prevLast.key || (last?.text.length ?? 0) !== prevLast.length
+    if (!followRef.current) {
+      // 바닥에서 떨어져 있는 동안 아래에 새 내용이 생겼다.
+      if (bottomChanged && prevCount !== 0) setVisible(newMessagesRef.current, true)
+      return
+    }
     if (!bottomChanged && !waiting) return
     // 새 메시지가 추가되면 부드럽게, 같은 메시지가 길어지는 중(토큰)에는 즉시 내린다.
     // 토큰마다 smooth로 내리면 애니메이션이 계속 처음부터 다시 시작된다.
@@ -137,31 +162,44 @@ export function MessageList({
   }, [hasOlder])
 
   return (
-    <div
-      className="message-list"
-      ref={listRef}
-      onScroll={(e) => updateFollow(e.currentTarget)}
-      data-testid="message-list"
-    >
-      <ol>
-        {hasOlder && (
-          <li ref={sentinelRef} className="sentinel" data-testid="sentinel" aria-hidden />
-        )}
-        {messages.map((m) => (
-          <Item
-            key={m.key}
-            message={m}
-            markdown={!(variant.plainWhileStreaming && m.status === 'streaming')}
-            onRetry={onRetry}
-            onCopy={onCopy}
-          />
-        ))}
-        {waiting && (
-          <li className="message message--assistant" data-testid="waiting" aria-live="polite">
-            <div className="bubble bubble--waiting">응답을 기다리는 중…</div>
-          </li>
-        )}
-      </ol>
+    <div className="message-list-wrap">
+      <div
+        className="message-list"
+        ref={listRef}
+        onScroll={(e) => updateFollow(e.currentTarget)}
+        data-testid="message-list"
+      >
+        <ol>
+          {hasOlder && (
+            <li ref={sentinelRef} className="sentinel" data-testid="sentinel" aria-hidden />
+          )}
+          {messages.map((m) => (
+            <Item
+              key={m.key}
+              message={m}
+              markdown={!(variant.plainWhileStreaming && m.status === 'streaming')}
+              onRetry={onRetry}
+              onCopy={onCopy}
+            />
+          ))}
+          {waiting && (
+            <li className="message message--assistant" data-testid="waiting" aria-live="polite">
+              <div className="bubble bubble--waiting">응답을 기다리는 중…</div>
+            </li>
+          )}
+        </ol>
+      </div>
+      {/* hidden은 처음에만 React가 넣는다. 이후 표시 여부는 setVisible이 바꾼다. */}
+      <button
+        ref={newMessagesRef}
+        type="button"
+        className="new-messages"
+        data-testid="new-messages"
+        hidden
+        onClick={jumpToBottom}
+      >
+        새 메시지 ↓
+      </button>
     </div>
   )
 }

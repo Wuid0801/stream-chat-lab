@@ -37,6 +37,7 @@ export function MessageItem({ message, markdown, onRetry, onCopy }: Props) {
     >
       <MessageBody text={message.text} markdown={markdown} />
       {message.status === 'pending' && <div className="meta">보내는 중…</div>}
+      {message.stopped && <div className="meta">중지됨</div>}
       {message.status === 'failed' && (
         <div className="meta meta--failed" role="alert">
           <span>{failText(message.failReason)}</span>

@@ -52,6 +52,11 @@ export function createApiClient(options: { baseUrl: string; token: string }): Ch
       const query = params.size === 0 ? '' : `?${params.toString()}`
       return messagesPageSchema.parse(await request(`/messages${query}`))
     },
+    async cancelTurn(turnId) {
+      return turnResponseSchema.parse(
+        await request(`/turns/${encodeURIComponent(turnId)}/cancel`, { method: 'POST' }),
+      )
+    },
     async renewStreamToken(turnId) {
       const body = await request(`/turns/${encodeURIComponent(turnId)}/stream-token`, {
         method: 'POST',

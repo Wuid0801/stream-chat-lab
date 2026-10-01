@@ -124,6 +124,8 @@ export interface DisplayMessage {
   text: string
   status: 'sent' | 'pending' | 'failed' | 'streaming'
   failReason?: string
+  /** 사용자가 중지해 도중까지만 저장된 응답 */
+  stopped?: boolean
 }
 
 /**
@@ -168,6 +170,7 @@ export function selectDisplayMessages(
       role: m.role,
       text: m.text,
       status: 'sent',
+      ...(m.stopped ? { stopped: true } : {}),
     })),
   )
   for (const m of state.local) {

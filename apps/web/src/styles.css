@@ -79,6 +79,33 @@ body {
   font-size: 14px;
 }
 
+.message-list-wrap {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.new-messages {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
+  cursor: pointer;
+}
+
+.new-messages[hidden] {
+  display: none;
+}
+
 .message-list {
   flex: 1;
   overflow-y: auto;
@@ -223,6 +250,10 @@ body {
   background: var(--user);
   color: var(--user-text);
   cursor: pointer;
+}
+
+.composer .composer__stop {
+  background: var(--danger);
 }
 
 .composer button:disabled {
