@@ -13,7 +13,8 @@
     "@stream-chat-lab/chat-protocol": "*",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "react-markdown": "^10.1.0"
+    "react-markdown": "^10.1.0",
+    "@stream-chat-lab/sse-parser": "*"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
