@@ -2,6 +2,7 @@ import {
   replyClientId,
   type Message,
   type Scenario,
+  type ScenarioOptions,
   type TurnResponse,
   type TurnStatus,
 } from '@stream-chat-lab/chat-protocol'
@@ -13,7 +14,10 @@ export interface TurnRecord {
   scenario: Scenario
   seed: number
   replyOptions: ReplyOptions
+  scenarioOptions: ScenarioOptions
   status: TurnStatus
+  /** 스트림 구독 요청 수. 장애 시나리오는 첫 구독에만 적용한다. */
+  subscriptions: number
   userMessage: Message
   assistantMessage: Message | null
 }
@@ -53,6 +57,7 @@ export function createStore(options: {
       scenario: Scenario
       seed: number
       replyOptions: ReplyOptions
+      scenarioOptions: ScenarioOptions
     }): TurnRecord {
       const turn: TurnRecord = {
         id: `t${String(++turnSeq).padStart(6, '0')}`,
@@ -60,7 +65,9 @@ export function createStore(options: {
         scenario: input.scenario,
         seed: input.seed,
         replyOptions: input.replyOptions,
+        scenarioOptions: input.scenarioOptions,
         status: 'streaming',
+        subscriptions: 0,
         userMessage: addMessage('user', input.clientId, input.text),
         assistantMessage: null,
       }
@@ -74,6 +81,15 @@ export function createStore(options: {
       turn.status = 'completed'
       turn.assistantMessage = message
       return message
+    },
+
+    /** 응답을 만들기 전에 실패한 턴. 같은 clientId로 다시 보내면 같은 턴을 다시 쓴다. (docs/decisions/013) */
+    failTurn(turn: TurnRecord): void {
+      turn.status = 'failed'
+    },
+
+    retryTurn(turn: TurnRecord): void {
+      turn.status = 'streaming'
     },
 
     getTurn(id: string): TurnRecord | undefined {

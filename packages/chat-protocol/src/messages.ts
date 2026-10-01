@@ -21,13 +21,38 @@ export const scenarioSchema = z.enum([
   'done-only',
   'close-after-final',
   'drop-after-saved',
+  'drop-mid-stream',
+  'slow-first-token',
+  'long-silence',
+  'http-401',
+  'http-5xx',
+  'chunk-chaos',
+  'proxy-buffering',
 ])
 export type Scenario = z.infer<typeof scenarioSchema>
+
+/**
+ * 시나리오의 시간 값. 기본값은 DEMO_SPEC 4장 그대로이고, E2E는 짧게 줄여서 쓴다.
+ */
+export const scenarioOptionsSchema = z.object({
+  /** slow-first-token: 첫 토큰까지 기다리는 시간 (기본: seed로 5~15초) */
+  firstTokenDelayMs: z.number().int().min(0).max(120_000).optional(),
+  /** long-silence: 응답 중간의 침묵 시간 (기본 60초) */
+  silenceMs: z.number().int().min(0).max(300_000).optional(),
+  /** 주석 하트비트(`: ping`)를 보낼지 (기본 true) */
+  heartbeat: z.boolean().optional(),
+  /** 하트비트 간격 (기본 15초) */
+  heartbeatMs: z.number().int().min(50).max(60_000).optional(),
+  /** proxy-buffering: 모아서 보내는 간격 (기본 2초) */
+  bufferMs: z.number().int().min(10).max(60_000).optional(),
+})
+export type ScenarioOptions = z.infer<typeof scenarioOptionsSchema>
 
 export const createTurnRequestSchema = z.object({
   clientId: z.string().min(1),
   text: z.string().min(1),
   scenario: scenarioSchema.optional(),
+  scenarioOptions: scenarioOptionsSchema.optional(),
   seed: z.number().int().optional(),
   /** 측정용: 응답 토큰 수 (기본: seed로 정함) */
   replyTokens: z.number().int().min(1).max(10_000).optional(),
@@ -41,6 +66,10 @@ export const createTurnResponseSchema = z.object({
   streamToken: z.string(),
 })
 export type CreateTurnResponse = z.infer<typeof createTurnResponseSchema>
+
+/** POST /turns/:id/stream-token: 이어 받기용 새 1회용 토큰 */
+export const streamTokenResponseSchema = z.object({ streamToken: z.string() })
+export type StreamTokenResponse = z.infer<typeof streamTokenResponseSchema>
 
 export const turnStatusSchema = z.enum(['streaming', 'completed', 'failed'])
 export type TurnStatus = z.infer<typeof turnStatusSchema>
