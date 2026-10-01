@@ -16,6 +16,8 @@ export interface Conditions {
   seed: number
   viewport: string
   build: string
+  /** 목 서버 시나리오. 기본 측정은 normal */
+  scenario: string
 }
 
 export interface VariantResult {
@@ -60,7 +62,7 @@ export function renderReport(conditions: Conditions, results: VariantResult[]): 
     ].join(' | '),
   )
 
-  return `# 측정 결과
+  return `# 측정 결과${conditions.scenario === 'normal' ? '' : `: ${conditions.scenario}`}
 
 > 이 파일은 \`yarn bench\`가 생성한다. 손으로 고치지 않는다.
 
@@ -99,7 +101,7 @@ ${results.map(({ version }) => `- v${version}: ${VARIANT_LABELS[version] ?? ''}`
 | 빌드 | \`${conditions.build}\` (profiling 빌드의 react-dom) |
 | 뷰포트 | ${conditions.viewport} |
 | 대화 | 지난 메시지 ${conditions.historyMessages}개 |
-| 응답 | ${conditions.replyTokens} 토큰, ${conditions.tokensPerSecond} tokens/s, \`normal\` 시나리오, seed ${conditions.seed} |
+| 응답 | ${conditions.replyTokens} 토큰, ${conditions.tokensPerSecond} tokens/s, \`${conditions.scenario}\` 시나리오, seed ${conditions.seed} |
 | 반복 | 버전마다 ${conditions.runsPerVariant}회, 버전을 번갈아 실행, 실행마다 목 서버를 새로 띄움 |
 `
 }

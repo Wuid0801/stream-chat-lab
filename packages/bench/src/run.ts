@@ -1,8 +1,10 @@
 /**
  * 렌더 비용 측정 러너. `yarn bench` 한 번으로 빌드부터 docs/results.md 생성까지 한다.
  *
- *   yarn bench                         # 공식 측정: 버전 0~3 × 10회 → docs/results.md
- *   yarn bench --runs 1 --variants 0,3 # 빠른 확인: 결과를 출력만 하고 파일은 쓰지 않는다
+ *   yarn bench                         # 공식 측정: 버전 0~5 × 10회 → docs/results.md
+ *   yarn bench --scenario proxy-buffering --variants 1,2
+ *                                      # 다른 시나리오: 고른 버전 × 10회 → docs/results-proxy-buffering.md
+ *   yarn bench --runs 1 --variants 0,5 # 빠른 확인: 결과를 출력만 하고 파일은 쓰지 않는다
  *
  * 측정 방법과 한계: docs/decisions/010-benchmark-method.md
  */
@@ -14,6 +16,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
+import { scenarioSchema } from '@stream-chat-lab/chat-protocol'
 import { renderReport, type Conditions, type VariantResult } from './report'
 import {
   summarizeRun,
@@ -52,11 +55,18 @@ const { values: args } = parseArgs({
   options: {
     runs: { type: 'string', default: String(OFFICIAL_RUNS) },
     variants: { type: 'string', default: ALL_VARIANTS.join(',') },
+    scenario: { type: 'string', default: 'normal' },
   },
 })
 const runs = Number(args.runs)
 const variants = args.variants.split(',').map(Number)
-const official = runs === OFFICIAL_RUNS && ALL_VARIANTS.every((v) => variants.includes(v))
+const scenario = scenarioSchema.parse(args.scenario)
+// 공식 측정: normal은 모든 버전, 다른 시나리오는 비교할 버전만 골라도 된다. 반복은 항상 10회다.
+const official =
+  runs === OFFICIAL_RUNS &&
+  (scenario !== 'normal' || ALL_VARIANTS.every((v) => variants.includes(v)))
+/** normal은 docs/results.md, 다른 시나리오는 docs/results-<시나리오>.md */
+const resultName = scenario === 'normal' ? 'results' : `results-${scenario}`
 
 function start(scriptArgs: string[], env: Record<string, string> = {}): ChildProcess {
   const child = spawn(process.execPath, scriptArgs, {
@@ -123,7 +133,7 @@ async function runOnce(
     const query = new URLSearchParams({
       bench: '1',
       v: String(version),
-      scenario: 'normal',
+      scenario,
       seed: String(CONDITIONS.seed),
       history: String(CONDITIONS.historyMessages),
       tokens: String(CONDITIONS.replyTokens),
@@ -269,6 +279,7 @@ async function main(): Promise<void> {
       seed: CONDITIONS.seed,
       viewport: `${CONDITIONS.viewport.width}x${CONDITIONS.viewport.height}`,
       build: 'vite build --mode bench',
+      scenario,
     }
     const variantResults: VariantResult[] = variants.map((version) => ({
       version,
@@ -277,12 +288,12 @@ async function main(): Promise<void> {
     const report = renderReport(conditions, variantResults)
 
     if (official) {
-      writeFileSync(path.join(ROOT, 'docs/results.md'), report)
+      writeFileSync(path.join(ROOT, `docs/${resultName}.md`), report)
       writeFileSync(
-        path.join(ROOT, 'docs/results-raw.json'),
+        path.join(ROOT, `docs/${resultName}-raw.json`),
         JSON.stringify({ conditions, results: variantResults }, null, 2) + '\n',
       )
-      console.log('docs/results.md, docs/results-raw.json을 썼다')
+      console.log(`docs/${resultName}.md, docs/${resultName}-raw.json을 썼다`)
     } else {
       // 공식 조건이 아니면 파일을 쓰지 않는다. 측정하지 않은 조건의 값이 결과 문서에 섞이지 않게 하기 위해서다.
       console.log(report)
