@@ -39,6 +39,7 @@ function setup() {
   const creates: ReturnType<typeof deferred<CreateTurnResponse>>[] = []
   const turnLookups: ReturnType<typeof deferred<TurnResponse>>[] = []
   const renewals: ReturnType<typeof deferred<string>>[] = []
+  const cancels: ReturnType<typeof deferred<TurnResponse>>[] = []
   const api: ChatApi = {
     createTurn: vi.fn(() => {
       const d = deferred<CreateTurnResponse>()
@@ -53,6 +54,11 @@ function setup() {
     renewStreamToken: vi.fn(() => {
       const d = deferred<string>()
       renewals.push(d)
+      return d.promise
+    }),
+    cancelTurn: vi.fn(() => {
+      const d = deferred<TurnResponse>()
+      cancels.push(d)
       return d.promise
     }),
     getMessages: vi.fn(),
@@ -131,6 +137,7 @@ function setup() {
     creates,
     turnLookups,
     renewals,
+    cancels,
     connections,
     connect,
     conn,
@@ -500,5 +507,76 @@ describe('이어 받기', () => {
     t.renewals[0]?.resolve('late')
     await flush()
     expect(t.connections).toHaveLength(1)
+  })
+})
+
+describe('중지', () => {
+  const stoppedTurn = (clientId: string): TurnResponse => ({
+    id: 't0',
+    clientId,
+    status: 'completed',
+    userMessage: message(clientId, 'user', '질문'),
+    assistantMessage: { ...message(replyClientId(clientId), 'assistant', '부분'), stopped: true },
+  })
+
+  it('스트리밍 중에 중지하면 연결을 닫고, 서버가 저장한 부분 응답으로 완료한다', async () => {
+    const t = setup()
+    const result = t.controller.send('a', 'c1')
+    await t.connect(0)
+    t.emit(0, { type: 'token', turnId: 't0', seq: 0, text: '부분' })
+    if (result.ok) result.turn.cancel()
+    expect(t.conn(0).closed).toBe(true)
+    expect(t.api.cancelTurn).toHaveBeenCalledWith('t0')
+    expect(result.ok && result.turn.status).toBe('cancelling')
+
+    t.cancels[0]?.resolve(stoppedTurn('c1'))
+    await flush()
+    const completed = t.callbacks.onCompleted.mock.calls[0]
+    expect(completed?.[2].stopped).toBe(true)
+    expect(t.controller.send('b', 'c2').ok).toBe(true)
+  })
+
+  it('중지를 기다리는 동안 늦게 온 토큰과 연결 오류는 무시한다', async () => {
+    const t = setup()
+    const result = t.controller.send('a', 'c1')
+    await t.connect(0)
+    t.emit(0, { type: 'token', turnId: 't0', seq: 0, text: '부분' })
+    if (result.ok) result.turn.cancel()
+    t.emit(0, { type: 'token', turnId: 't0', seq: 1, text: '늦은' })
+    t.fail(0)
+    await flush()
+    expect(t.callbacks.onToken).toHaveBeenCalledTimes(1)
+    expect(t.api.renewStreamToken).not.toHaveBeenCalled()
+  })
+
+  it('준비 중에 중지하면 서버를 부르지 않고 취소만 한다', () => {
+    const t = setup()
+    const result = t.controller.send('a', 'c1')
+    if (result.ok) result.turn.cancel()
+    expect(t.api.cancelTurn).not.toHaveBeenCalled()
+    expect(t.callbacks.onFailed).toHaveBeenCalledWith('c1', 'aborted')
+  })
+
+  it('이어 받기를 기다리는 중에 중지하면 다시 구독하지 않는다', async () => {
+    const t = setup()
+    const result = t.controller.send('a', 'c1')
+    await t.connect(0)
+    t.emit(0, { type: 'token', turnId: 't0', seq: 0, text: '부분' })
+    t.fail(0)
+    if (result.ok) result.turn.cancel()
+    await flush()
+    t.renewals[0]?.resolve('late')
+    await flush()
+    expect(t.connections).toHaveLength(1)
+  })
+
+  it('중지 요청이 실패하면 cancel-failed로 실패한다', async () => {
+    const t = setup()
+    const result = t.controller.send('a', 'c1')
+    await t.connect(0)
+    if (result.ok) result.turn.cancel()
+    t.cancels[0]?.reject(new Error('network'))
+    await flush()
+    expect(t.callbacks.onFailed).toHaveBeenCalledWith('c1', 'cancel-failed')
   })
 })

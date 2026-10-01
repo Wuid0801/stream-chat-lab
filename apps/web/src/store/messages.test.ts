@@ -200,3 +200,15 @@ describe('과거 페이지', () => {
     expect(state.olderCursor).toBe('c-older')
   })
 })
+
+describe('중지된 응답', () => {
+  it('서버가 stopped로 저장한 응답은 표시용 메시지에도 stopped가 붙는다', () => {
+    const user = serverMessage('c-stop', 'user', '질문')
+    const reply = { ...serverMessage(replyClientId('c-stop'), 'assistant', '부분'), stopped: true }
+    const state = run(
+      { type: 'send-started', clientId: 'c-stop', text: '질문' },
+      { type: 'turn-completed', clientId: 'c-stop', userMessage: user, assistantMessage: reply },
+    )
+    expect(selectDisplayMessages(state).map((m) => m.stopped ?? false)).toEqual([false, true])
+  })
+})
