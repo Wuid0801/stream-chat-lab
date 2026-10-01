@@ -45,7 +45,12 @@ http://localhost:5173/?scenario=close-after-final&seed=11
 http://localhost:5173/?scenario=drop-after-saved&seed=11
 ```
 
-시나리오별 서버 동작과 기대 결과는 [`docs/protocol.md`](docs/protocol.md)에 있다.
+시나리오 11개의 서버 동작과 기대 결과는 [`docs/protocol.md`](docs/protocol.md)에 있다. 전송 방식은 `?transport=eventsource`(기본) 또는 `?transport=fetch`로 고른다. 두 방식의 차이는 [`docs/decisions/012`](docs/decisions/012-eventsource-vs-fetch.md)에 있다.
+
+```
+http://localhost:5173/?scenario=drop-mid-stream&seed=11&transport=fetch
+http://localhost:5173/?scenario=long-silence&silence=8000&heartbeat=off&idleTimeout=3000&transport=fetch
+```
 
 렌더 비교 버전은 `?v=0`~`?v=3`으로 고른다. 기본값은 v3다. 버전별 기법은 [`docs/decisions/009`](docs/decisions/009-render-variants.md), 측정 방법은 [`docs/decisions/010`](docs/decisions/010-benchmark-method.md)에 있다. 빠르게 확인할 때는 `yarn bench --runs 1 --variants 0,3`을 쓴다. 이때는 결과를 출력만 하고 파일은 쓰지 않는다.
 
