@@ -111,7 +111,16 @@ export function ChatView({ api, transport, variant, turnRequest, historyLimit }:
     })
   }, [])
 
-  const list = <MessageList messages={messages} variant={variant} onRetry={retry} onCopy={copy} />
+  const waiting = state.streaming === null && state.local.some((m) => m.status === 'pending')
+  const list = (
+    <MessageList
+      messages={messages}
+      variant={variant}
+      waiting={waiting}
+      onRetry={retry}
+      onCopy={copy}
+    />
+  )
 
   return (
     <div className="chat">

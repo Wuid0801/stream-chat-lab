@@ -9,11 +9,13 @@ const BOTTOM_THRESHOLD = 48
 interface Props {
   messages: DisplayMessage[]
   variant: RenderVariant
+  /** 보냈지만 첫 토큰이 아직 오지 않았다 */
+  waiting: boolean
   onRetry(clientId: string): void
   onCopy(text: string): void
 }
 
-export function MessageList({ messages, variant, onRetry, onCopy }: Props) {
+export function MessageList({ messages, variant, waiting, onRetry, onCopy }: Props) {
   const Item = variant.memoPast ? MemoMessageItem : MessageItem
   const listRef = useRef<HTMLDivElement>(null)
   const followRef = useRef(true)
@@ -45,7 +47,7 @@ export function MessageList({ messages, variant, onRetry, onCopy }: Props) {
     const added = prevCount !== 0 && messages.length > prevCount
     el.scrollTo({ top: el.scrollHeight, behavior: added ? 'smooth' : 'auto' })
     lastScrollTopRef.current = el.scrollTop
-  }, [messages])
+  }, [messages, waiting])
 
   return (
     <div
@@ -64,6 +66,11 @@ export function MessageList({ messages, variant, onRetry, onCopy }: Props) {
             onCopy={onCopy}
           />
         ))}
+        {waiting && (
+          <li className="message message--assistant" data-testid="waiting" aria-live="polite">
+            <div className="bubble bubble--waiting">응답을 기다리는 중…</div>
+          </li>
+        )}
       </ol>
     </div>
   )

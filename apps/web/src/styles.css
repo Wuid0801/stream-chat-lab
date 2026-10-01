@@ -157,6 +157,11 @@ body {
   border: 1px dashed var(--danger);
 }
 
+.bubble--waiting {
+  color: var(--muted);
+  font-style: italic;
+}
+
 .message[data-status='streaming'] .bubble::after {
   content: '▍';
   margin-left: 2px;
