@@ -1,17 +1,20 @@
 import { useLayoutEffect, useRef } from 'react'
 import type { DisplayMessage } from '../store/messages'
-import { MessageItem } from './MessageItem'
+import type { RenderVariant } from '../variants/config'
+import { MemoMessageItem, MessageItem } from './MessageItem'
 
 /** 바닥에서 이 거리(px) 안에 있으면 "바닥 근처"로 본다 */
 const BOTTOM_THRESHOLD = 48
 
 interface Props {
   messages: DisplayMessage[]
+  variant: RenderVariant
   onRetry(clientId: string): void
   onCopy(text: string): void
 }
 
-export function MessageList({ messages, onRetry, onCopy }: Props) {
+export function MessageList({ messages, variant, onRetry, onCopy }: Props) {
+  const Item = variant.memoPast ? MemoMessageItem : MessageItem
   const listRef = useRef<HTMLDivElement>(null)
   const followRef = useRef(true)
   const lastScrollTopRef = useRef(0)
@@ -53,7 +56,13 @@ export function MessageList({ messages, onRetry, onCopy }: Props) {
     >
       <ol>
         {messages.map((m) => (
-          <MessageItem key={m.key} message={m} onRetry={onRetry} onCopy={onCopy} />
+          <Item
+            key={m.key}
+            message={m}
+            markdown={!(variant.plainWhileStreaming && m.status === 'streaming')}
+            onRetry={onRetry}
+            onCopy={onCopy}
+          />
         ))}
       </ol>
     </div>

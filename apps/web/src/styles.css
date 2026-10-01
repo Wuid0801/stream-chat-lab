@@ -119,6 +119,28 @@ body {
   border: 1px solid var(--border);
 }
 
+.bubble--markdown {
+  white-space: normal;
+}
+
+.bubble--markdown > :first-child {
+  margin-top: 0;
+}
+
+.bubble--markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.bubble--markdown ul,
+.bubble--markdown ol {
+  padding-left: 20px;
+}
+
+.bubble--markdown code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+}
+
 .message--user .bubble {
   background: var(--user);
   color: var(--user-text);
