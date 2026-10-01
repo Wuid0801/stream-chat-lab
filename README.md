@@ -31,6 +31,7 @@ yarn lint        # ESLint + Prettier 검사
 yarn typecheck   # tsc -b
 yarn test        # Vitest 단위 테스트
 yarn e2e         # Playwright E2E (mock-server와 web을 함께 띄운다)
+yarn bench       # 렌더 비용 측정 → docs/results.md (약 30~40분)
 ```
 
 E2E를 처음 실행할 때는 브라우저를 설치한다: `yarn playwright install chromium`
@@ -44,7 +45,9 @@ http://localhost:5173/?scenario=close-after-final&seed=11
 http://localhost:5173/?scenario=drop-after-saved&seed=11
 ```
 
-시나리오별 서버 동작과 기대 결과는 [`docs/protocol.md`](docs/protocol.md)에 있다. `?v=`(렌더 비교 버전) 사용법은 작성 예정.
+시나리오별 서버 동작과 기대 결과는 [`docs/protocol.md`](docs/protocol.md)에 있다.
+
+렌더 비교 버전은 `?v=0`~`?v=3`으로 고른다. 기본값은 v3다. 버전별 기법은 [`docs/decisions/009`](docs/decisions/009-render-variants.md), 측정 방법은 [`docs/decisions/010`](docs/decisions/010-benchmark-method.md)에 있다. 빠르게 확인할 때는 `yarn bench --runs 1 --variants 0,3`을 쓴다. 이때는 결과를 출력만 하고 파일은 쓰지 않는다.
 
 ## 구조
 

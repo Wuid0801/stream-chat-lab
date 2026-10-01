@@ -47,3 +47,5 @@ SSE 토큰 스트리밍 채팅의 문제(종료 계약, 재연결, 낙관적 메
 ## 명령
 
 - `yarn lint && yarn typecheck && yarn test` — 마일스톤 완료 기준의 기본
+- `yarn e2e` — Playwright E2E. `yarn bench` — 렌더 측정, 공식 조건일 때만 `docs/results.md`를 쓴다
+- package.json 스크립트 안에서 `yarn`을 다시 부르지 않는다 (Windows corepack shim + 비ASCII 경로 문제, decisions/001)
