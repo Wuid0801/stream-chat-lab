@@ -10,6 +10,11 @@ export const messageSchema = z.object({
 })
 export type Message = z.infer<typeof messageSchema>
 
+/** 응답 메시지의 clientId는 사용자 메시지의 clientId로 정해진다. 서버와 클라이언트가 같은 규칙을 쓴다. */
+export function replyClientId(userClientId: string): string {
+  return `${userClientId}:reply`
+}
+
 /** 목 서버 장애 시나리오. docs/protocol.md 참고 */
 export const scenarioSchema = z.enum([
   'normal',

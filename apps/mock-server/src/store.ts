@@ -1,4 +1,10 @@
-import type { Message, Scenario, TurnResponse, TurnStatus } from '@stream-chat-lab/chat-protocol'
+import {
+  replyClientId,
+  type Message,
+  type Scenario,
+  type TurnResponse,
+  type TurnStatus,
+} from '@stream-chat-lab/chat-protocol'
 import { seedConversation } from './reply'
 
 export interface TurnRecord {
@@ -61,8 +67,7 @@ export function createStore(options: {
     },
 
     completeTurn(turn: TurnRecord, text: string): Message {
-      // 응답 메시지의 clientId는 사용자 메시지의 clientId에서 정해지는 값으로 둔다.
-      const message = addMessage('assistant', `${turn.clientId}:reply`, text)
+      const message = addMessage('assistant', replyClientId(turn.clientId), text)
       turn.status = 'completed'
       turn.assistantMessage = message
       return message
