@@ -1,0 +1,232 @@
+{
+  "conditions": {
+    "date": "2026-10-01",
+    "commit": "ced0ff9",
+    "cpu": "Intel(R) Core(TM) Ultra 7 155H (논리 코어 22개)",
+    "memoryGb": 31,
+    "os": "Windows 11 Pro (10.0.26200)",
+    "browser": "Chromium 153.0.8010.12",
+    "playwright": "1.63.0",
+    "cpuThrottle": 4,
+    "runsPerVariant": 10,
+    "historyMessages": 200,
+    "replyTokens": 1500,
+    "tokensPerSecond": 40,
+    "seed": 11,
+    "viewport": "1280x720",
+    "build": "vite build --mode bench",
+    "scenario": "proxy-buffering"
+  },
+  "results": [
+    {
+      "version": 1,
+      "runs": [
+        {
+          "commits": 26,
+          "meanRenderMs": 16.211538462111584,
+          "maxRenderMs": 136.1000000089407,
+          "longTaskTotalMs": 155,
+          "inpMs": 88,
+          "remounts": 2,
+          "positionErrorPx": 0,
+          "jumpedFrames": 1
+        },
+        {
+          "commits": 26,
+          "meanRenderMs": 14.346153845580725,
+          "maxRenderMs": 167.69999998807907,
+          "longTaskTotalMs": 191,
+          "inpMs": 32,
+          "remounts": 2,
+          "positionErrorPx": 0,
+          "jumpedFrames": 1
+        },
+        {
+          "commits": 25,
+          "meanRenderMs": 13.651999999880791,
+          "maxRenderMs": 103.99999995529652,
+          "longTaskTotalMs": 174,
+          "inpMs": 16,
+          "remounts": 2,
+          "positionErrorPx": 0,
+          "jumpedFrames": 1
+        },
+        {
+          "commits": 25,
+          "meanRenderMs": 14.19999999821186,
+          "maxRenderMs": 112.19999998807907,
+          "longTaskTotalMs": 129,
+          "inpMs": 24,
+          "remounts": 2,
+          "positionErrorPx": 0,
+          "jumpedFrames": 1
+        },
+        {
+          "commits": 25,
+          "meanRenderMs": 14.135999999046327,
+          "maxRenderMs": 140.20000004768372,
+          "longTaskTotalMs": 157,
+          "inpMs": 24,
+          "remounts": 2,
+          "positionErrorPx": 0,
+          "jumpedFrames": 1
+        },
+        {
+          "commits": 25,
+          "meanRenderMs": 14.748000000715257,
+          "maxRenderMs": 113.8999999910593,
+          "longTaskTotalMs": 274,
+          "inpMs": 112,
+          "remounts": 2,
+          "positionErrorPx": 0,
+          "jumpedFrames": 1
+        },
+        {
+          "commits": 26,
+          "meanRenderMs": 11.84615384443448,
+          "maxRenderMs": 114.3999999910593,
+          "longTaskTotalMs": 130,
+          "inpMs": 88,
+          "remounts": 2,
+          "positionErrorPx": 0,
+          "jumpedFrames": 1
+        },
+        {
+          "commits": 26,
+          "meanRenderMs": 15.988461539722406,
+          "maxRenderMs": 124.79999999701977,
+          "longTaskTotalMs": 196,
+          "inpMs": 40,
+          "remounts": 2,
+          "positionErrorPx": 0,
+          "jumpedFrames": 1
+        },
+        {
+          "commits": 25,
+          "meanRenderMs": 15.495999999642372,
+          "maxRenderMs": 114.10000002384186,
+          "longTaskTotalMs": 131,
+          "inpMs": 24,
+          "remounts": 2,
+          "positionErrorPx": 0,
+          "jumpedFrames": 1
+        },
+        {
+          "commits": 26,
+          "meanRenderMs": 10.534615382552147,
+          "maxRenderMs": 83.79999999701977,
+          "longTaskTotalMs": 86,
+          "inpMs": 16,
+          "remounts": 2,
+          "positionErrorPx": 0,
+          "jumpedFrames": 1
+        }
+      ]
+    },
+    {
+      "version": 2,
+      "runs": [
+        {
+          "commits": 26,
+          "meanRenderMs": 13.553846155794767,
+          "maxRenderMs": 106.29999999701977,
+          "longTaskTotalMs": 123,
+          "inpMs": 24,
+          "remounts": 2,
+          "positionErrorPx": 0,
+          "jumpedFrames": 1
+        },
+        {
+          "commits": 26,
+          "meanRenderMs": 12.449999995529652,
+          "maxRenderMs": 90.49999995529652,
+          "longTaskTotalMs": 103,
+          "inpMs": 40,
+          "remounts": 2,
+          "positionErrorPx": 0,
+          "jumpedFrames": 1
+        },
+        {
+          "commits": 26,
+          "meanRenderMs": 17.357692307577683,
+          "maxRenderMs": 181.39999997615814,
+          "longTaskTotalMs": 273,
+          "inpMs": 32,
+          "remounts": 2,
+          "positionErrorPx": 0,
+          "jumpedFrames": 1
+        },
+        {
+          "commits": 25,
+          "meanRenderMs": 14.203999997973442,
+          "maxRenderMs": 130.09999999403954,
+          "longTaskTotalMs": 214,
+          "inpMs": 104,
+          "remounts": 2,
+          "positionErrorPx": 0,
+          "jumpedFrames": 1
+        },
+        {
+          "commits": 26,
+          "meanRenderMs": 14.24230769276619,
+          "maxRenderMs": 137.69999998807907,
+          "longTaskTotalMs": 161,
+          "inpMs": 32,
+          "remounts": 2,
+          "positionErrorPx": 0,
+          "jumpedFrames": 1
+        },
+        {
+          "commits": 26,
+          "meanRenderMs": 14.82692307463059,
+          "maxRenderMs": 115.8999999910593,
+          "longTaskTotalMs": 188,
+          "inpMs": 24,
+          "remounts": 2,
+          "positionErrorPx": 0,
+          "jumpedFrames": 1
+        },
+        {
+          "commits": 26,
+          "meanRenderMs": 13.46153846096534,
+          "maxRenderMs": 113.29999999701977,
+          "longTaskTotalMs": 129,
+          "inpMs": 80,
+          "remounts": 2,
+          "positionErrorPx": 0,
+          "jumpedFrames": 1
+        },
+        {
+          "commits": 26,
+          "meanRenderMs": 14.838461539493156,
+          "maxRenderMs": 116.60000002384186,
+          "longTaskTotalMs": 196,
+          "inpMs": 16,
+          "remounts": 2,
+          "positionErrorPx": 0,
+          "jumpedFrames": 1
+        },
+        {
+          "commits": 26,
+          "meanRenderMs": 12.496153845809973,
+          "maxRenderMs": 103.19999998807907,
+          "longTaskTotalMs": 117,
+          "inpMs": 16,
+          "remounts": 2,
+          "positionErrorPx": 0,
+          "jumpedFrames": 1
+        },
+        {
+          "commits": 26,
+          "meanRenderMs": 12.199999997822138,
+          "maxRenderMs": 80.09999997913837,
+          "longTaskTotalMs": 92,
+          "inpMs": 16,
+          "remounts": 2,
+          "positionErrorPx": 0,
+          "jumpedFrames": 1
+        }
+      ]
+    }
+  ]
+}
