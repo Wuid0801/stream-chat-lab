@@ -11,7 +11,12 @@ export const messageSchema = z.object({
 export type Message = z.infer<typeof messageSchema>
 
 /** 목 서버 장애 시나리오. docs/protocol.md 참고 */
-export const scenarioSchema = z.enum(['normal', 'done-only', 'close-after-final', 'drop-after-saved'])
+export const scenarioSchema = z.enum([
+  'normal',
+  'done-only',
+  'close-after-final',
+  'drop-after-saved',
+])
 export type Scenario = z.infer<typeof scenarioSchema>
 
 export const createTurnRequestSchema = z.object({

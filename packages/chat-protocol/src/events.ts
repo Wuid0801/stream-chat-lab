@@ -6,7 +6,12 @@ import { messageSchema } from './messages'
  * event 이름 'error'가 EventSource의 연결 오류 이벤트와 겹치기 때문이다. (docs/decisions/004)
  */
 export const streamEventSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('token'), turnId: z.string(), seq: z.number().int(), text: z.string() }),
+  z.object({
+    type: z.literal('token'),
+    turnId: z.string(),
+    seq: z.number().int(),
+    text: z.string(),
+  }),
   /** 생성이 끝났다는 알림일 뿐 종료 신호가 아니다. 이 뒤에 final이 온다. */
   z.object({ type: z.literal('done'), turnId: z.string() }),
   /** 유일한 정상 종료 신호. 서버에 확정된 메시지를 담는다. */
