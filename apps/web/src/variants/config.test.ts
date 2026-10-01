@@ -8,6 +8,8 @@ describe('parseVariant', () => {
       memoPast: false,
       rafBatch: false,
       plainWhileStreaming: false,
+      stableKey: false,
+      layoutScrollCorrection: false,
     })
   })
 
@@ -22,12 +24,19 @@ describe('parseVariant', () => {
       memoPast: true,
       rafBatch: true,
       plainWhileStreaming: true,
+      stableKey: false,
     })
+    expect(parseVariant('4')).toMatchObject({
+      plainWhileStreaming: true,
+      stableKey: true,
+      layoutScrollCorrection: false,
+    })
+    expect(parseVariant('5')).toMatchObject({ stableKey: true, layoutScrollCorrection: true })
   })
 
-  it('값이 없거나 잘못되면 최신 버전(v3)을 쓴다', () => {
-    expect(parseVariant(null).version).toBe(3)
-    expect(parseVariant('9').version).toBe(3)
-    expect(parseVariant('abc').version).toBe(3)
+  it('값이 없거나 잘못되면 최신 버전(v5)을 쓴다', () => {
+    expect(parseVariant(null).version).toBe(5)
+    expect(parseVariant('9').version).toBe(5)
+    expect(parseVariant('abc').version).toBe(5)
   })
 })

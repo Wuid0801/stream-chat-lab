@@ -138,3 +138,65 @@ describe('표시용 객체 유지 (memo가 동작하기 위한 조건)', () => {
     expect(selectDisplayMessages(second)[0]).toBe(selectDisplayMessages(first)[0])
   })
 })
+
+describe('렌더 key (v4: clientId 승계)', () => {
+  const keysOf = (state: ReturnType<typeof run>, stableKey: boolean) =>
+    selectDisplayMessages(state, { stableKey }).map((m) => m.key)
+
+  function beforeAndAfter() {
+    const user = serverMessage('c-key', 'user', '질문')
+    const reply = serverMessage(replyClientId('c-key'), 'assistant', '답')
+    const before = run(
+      { type: 'send-started', clientId: 'c-key', text: '질문' },
+      { type: 'stream-token', clientId: 'c-key', text: '답' },
+    )
+    const after = chatReducer(before, {
+      type: 'turn-completed',
+      clientId: 'c-key',
+      userMessage: user,
+      assistantMessage: reply,
+    })
+    return { before, after }
+  }
+
+  it('stableKey면 확정 전후의 key가 같다 (리마운트 없음)', () => {
+    const { before, after } = beforeAndAfter()
+    expect(keysOf(after, true)).toEqual(keysOf(before, true))
+  })
+
+  it('기본(서버 id key)은 확정될 때 key가 바뀐다 (v0~v3의 기준 동작)', () => {
+    const { before, after } = beforeAndAfter()
+    expect(keysOf(after, false)).not.toEqual(keysOf(before, false))
+  })
+})
+
+describe('과거 페이지', () => {
+  it('최신 페이지의 커서를 기억하고, 과거 페이지를 앞에 합친다', () => {
+    const older = [
+      serverMessage('o1', 'user', '옛 질문'),
+      serverMessage('o2', 'assistant', '옛 답'),
+    ]
+    const latest = [serverMessage('n1', 'user', '새 질문')]
+    const first = run({
+      type: 'history-loaded',
+      messages: latest,
+      nextCursor: latest[0]?.id ?? null,
+    })
+    expect(first.olderCursor).toBe(latest[0]?.id)
+
+    const second = chatReducer(first, { type: 'older-loaded', messages: older, nextCursor: null })
+    expect(view(second)).toEqual(['user:sent:옛 질문', 'assistant:sent:옛 답', 'user:sent:새 질문'])
+    expect(second.olderCursor).toBeNull()
+  })
+
+  it('최신 페이지를 다시 받아도 이미 알고 있는 커서를 덮어쓰지 않는다', () => {
+    const latest = [serverMessage('n2', 'user', '새 질문')]
+    const older = [serverMessage('o3', 'user', '옛 질문')]
+    const state = run(
+      { type: 'history-loaded', messages: latest, nextCursor: 'c-latest' },
+      { type: 'older-loaded', messages: older, nextCursor: 'c-older' },
+      { type: 'history-loaded', messages: latest, nextCursor: 'c-latest' },
+    )
+    expect(state.olderCursor).toBe('c-older')
+  })
+})
