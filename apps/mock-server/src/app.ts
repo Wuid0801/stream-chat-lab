@@ -46,7 +46,7 @@ export function createApp(options: AppOptions) {
   const runtime = createTurnRuntime({
     sleep,
     now,
-    completeTurn: (turn, text) => store.completeTurn(turn, text),
+    completeTurn: (turn, text, completion) => store.completeTurn(turn, text, completion),
     heartbeatMs: options.heartbeatMs ?? 15_000,
     lingerMs: options.lingerMs ?? 30_000,
   })
@@ -112,6 +112,15 @@ export function createApp(options: AppOptions) {
     if (!turn) return notFound(c)
     const response: StreamTokenResponse = { streamToken: streamTokens.issue(turn.id) }
     return c.json(response)
+  })
+
+  // 사용자가 중지한다. 생성 중이면 거기까지의 응답을 저장한다. (docs/decisions/016)
+  app.post('/turns/:id/cancel', (c) => {
+    if (!hasDemoToken(c)) return unauthorized(c)
+    const turn = store.getTurn(c.req.param('id'))
+    if (!turn) return notFound(c)
+    if (turn.status === 'streaming') runtime.cancel(turn)
+    return c.json(toTurnResponse(turn))
   })
 
   app.get('/turns/:id/stream', (c) => {

@@ -76,8 +76,9 @@ export function createStore(options: {
       return turn
     },
 
-    completeTurn(turn: TurnRecord, text: string): Message {
+    completeTurn(turn: TurnRecord, text: string, options: { stopped?: boolean } = {}): Message {
       const message = addMessage('assistant', replyClientId(turn.clientId), text)
+      if (options.stopped) message.stopped = true
       turn.status = 'completed'
       turn.assistantMessage = message
       return message

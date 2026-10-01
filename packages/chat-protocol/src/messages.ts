@@ -7,6 +7,8 @@ export const messageSchema = z.object({
   role: z.enum(['user', 'assistant']),
   text: z.string(),
   createdAt: z.string(),
+  /** 사용자가 중지해 생성 도중까지만 저장된 응답 (POST /turns/:id/cancel) */
+  stopped: z.boolean().optional(),
 })
 export type Message = z.infer<typeof messageSchema>
 

@@ -19,12 +19,15 @@ interface TurnRuntime {
   listeners: Set<() => void>
   /** 응답 토큰 수 (drop-mid-stream이 끊을 위치를 정할 때 쓴다) */
   tokenCount: number
+  started: boolean
+  /** 사용자가 중지했다. 생성기는 다음에 깨어날 때 멈춘다. */
+  stopped: boolean
 }
 
 export interface RuntimeDeps {
   sleep: (ms: number) => Promise<void>
   now: () => number
-  completeTurn: (turn: TurnRecord, text: string) => void
+  completeTurn: (turn: TurnRecord, text: string, options: { stopped: boolean }) => void
   heartbeatMs: number
   lingerMs: number
 }
@@ -34,23 +37,64 @@ const encoder = new TextEncoder()
 export function createTurnRuntime(deps: RuntimeDeps) {
   const runtimes = new Map<string, TurnRuntime>()
 
-  function push(runtime: TurnRuntime, event: StreamEvent) {
-    runtime.events.push(event)
+  function notify(runtime: TurnRuntime) {
     for (const listener of [...runtime.listeners]) listener()
   }
 
-  /** 생성기를 시작한다. 이미 시작했으면 아무것도 하지 않는다. */
-  function ensureStarted(turn: TurnRecord): TurnRuntime {
+  function push(runtime: TurnRuntime, event: StreamEvent) {
+    runtime.events.push(event)
+    notify(runtime)
+  }
+
+  function getRuntime(turn: TurnRecord): TurnRuntime {
     const existing = runtimes.get(turn.id)
     if (existing) return existing
-    const reply = generateReply(turn.seed, turn.replyOptions)
     const runtime: TurnRuntime = {
       events: [],
       ended: false,
       listeners: new Set(),
-      tokenCount: reply.tokens.length,
+      tokenCount: generateReply(turn.seed, turn.replyOptions).tokens.length,
+      started: false,
+      stopped: false,
     }
     runtimes.set(turn.id, runtime)
+    return runtime
+  }
+
+  /** 생성을 마친다: 저장한 뒤 done → final (done-only는 final 없음) */
+  function finish(runtime: TurnRuntime, turn: TurnRecord, text: string, stopped: boolean) {
+    deps.completeTurn(turn, text, { stopped })
+    push(runtime, { type: 'done', turnId: turn.id })
+    if ((stopped || turn.scenario !== 'done-only') && turn.assistantMessage) {
+      push(runtime, {
+        type: 'final',
+        turnId: turn.id,
+        userMessage: turn.userMessage,
+        assistantMessage: turn.assistantMessage,
+      })
+    }
+    runtime.ended = true
+    notify(runtime)
+  }
+
+  /**
+   * 사용자가 중지했다. 지금까지 만든 토큰만 응답으로 저장하고 final을 보낸다. (docs/decisions/016)
+   * 생성기가 sleep 중이어도 기다리지 않는다. 깨어난 생성기는 stopped를 보고 멈춘다.
+   */
+  function cancel(turn: TurnRecord): void {
+    const runtime = getRuntime(turn)
+    if (runtime.ended) return
+    runtime.stopped = true
+    const text = runtime.events.flatMap((e) => (e.type === 'token' ? [e.text] : [])).join('')
+    finish(runtime, turn, text, true)
+  }
+
+  /** 생성기를 시작한다. 이미 시작했거나 중지됐으면 아무것도 하지 않는다. */
+  function ensureStarted(turn: TurnRecord): TurnRuntime {
+    const runtime = getRuntime(turn)
+    if (runtime.started || runtime.stopped) return runtime
+    runtime.started = true
+    const reply = generateReply(turn.seed, turn.replyOptions)
 
     void (async () => {
       const options = turn.scenarioOptions
@@ -64,21 +108,12 @@ export function createTurnRuntime(deps: RuntimeDeps) {
         if (turn.scenario === 'long-silence' && seq === silenceAt) {
           await deps.sleep(options.silenceMs ?? 60_000)
         }
+        if (runtime.stopped) return
         push(runtime, { type: 'token', turnId: turn.id, seq, text })
         await deps.sleep(reply.intervalMs)
+        if (runtime.stopped) return
       }
-      deps.completeTurn(turn, reply.tokens.join(''))
-      push(runtime, { type: 'done', turnId: turn.id })
-      if (turn.scenario !== 'done-only' && turn.assistantMessage) {
-        push(runtime, {
-          type: 'final',
-          turnId: turn.id,
-          userMessage: turn.userMessage,
-          assistantMessage: turn.assistantMessage,
-        })
-      }
-      runtime.ended = true
-      for (const listener of [...runtime.listeners]) listener()
+      finish(runtime, turn, reply.tokens.join(''), false)
     })()
 
     return runtime
@@ -155,7 +190,7 @@ export function createTurnRuntime(deps: RuntimeDeps) {
     }
   }
 
-  return { subscribe, ensureStarted }
+  return { subscribe, ensureStarted, cancel }
 }
 
 interface Writer {
