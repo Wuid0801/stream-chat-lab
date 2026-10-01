@@ -86,7 +86,10 @@ export function ChatView({ api, transport, variant, turnRequest, historyLimit }:
   function startTurn(clientId: string, text: string) {
     const result = controllerRef.current?.send(text, clientId)
     if (!result?.ok) return
-    if (bench) bench.sentAt = performance.now()
+    if (bench) {
+      bench.sentAt = performance.now()
+      bench.mountsAtSend = bench.mounts
+    }
     dispatch({ type: 'send-started', clientId, text })
   }
 

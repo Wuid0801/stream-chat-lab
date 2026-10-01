@@ -12,6 +12,8 @@ export interface BenchData {
   events: { name: string; interactionId: number; startTime: number; duration: number }[]
   /** 전송 시각(performance.now) */
   sentAt: number | null
+  /** 전송 시점의 mounts 값 */
+  mountsAtSend: number
 }
 
 declare global {
@@ -27,7 +29,14 @@ declare global {
 function create(): BenchData | null {
   if (typeof window === 'undefined') return null
   if (!new URLSearchParams(window.location.search).has('bench')) return null
-  const data: BenchData = { commits: [], mounts: 0, longTasks: [], events: [], sentAt: null }
+  const data: BenchData = {
+    commits: [],
+    mounts: 0,
+    longTasks: [],
+    events: [],
+    sentAt: null,
+    mountsAtSend: 0,
+  }
   window.__bench = data
 
   new PerformanceObserver((list) => {
