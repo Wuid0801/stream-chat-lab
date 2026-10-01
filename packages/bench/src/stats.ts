@@ -70,3 +70,26 @@ export function summarizeRun(raw: RawRun): RunSummary {
     remounts: raw.mounts - raw.mountsAtSend - NEW_MESSAGES_PER_TURN,
   }
 }
+
+/** 위로 불러오기 측정: 맨 위로 올린 순간 보이던 첫 메시지의 위치(목록 위쪽 기준 px) */
+export interface ScrollSample {
+  initial: number
+  /** 불러오기 중과 반영 후 몇 프레임 동안, 매 프레임 같은 메시지의 위치 */
+  samples: number[]
+  /** 보정이 끝난 뒤 위치 */
+  final: number
+}
+
+export interface ScrollSummary {
+  /** |final − initial| */
+  positionErrorPx: number
+  /** initial에서 1px 넘게 벗어난 프레임 수. 보정 전에 페인트된 프레임이다. */
+  jumpedFrames: number
+}
+
+export function summarizeScroll(sample: ScrollSample): ScrollSummary {
+  return {
+    positionErrorPx: Math.round(Math.abs(sample.final - sample.initial) * 10) / 10,
+    jumpedFrames: sample.samples.filter((s) => Math.abs(s - sample.initial) > 1).length,
+  }
+}

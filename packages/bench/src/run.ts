@@ -15,7 +15,14 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { renderReport, type Conditions, type VariantResult } from './report'
-import { summarizeRun, type RawRun, type RunSummary } from './stats'
+import {
+  summarizeRun,
+  summarizeScroll,
+  type RawRun,
+  type RunSummary,
+  type ScrollSample,
+  type ScrollSummary,
+} from './stats'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 // yarn을 거치지 않고 바이너리를 직접 실행한다. (docs/decisions/001)
@@ -23,11 +30,15 @@ const VITE = path.join(ROOT, 'node_modules/vite/bin/vite.js')
 const TSX = path.join(ROOT, 'node_modules/tsx/dist/cli.mjs')
 
 const OFFICIAL_RUNS = 10
-const ALL_VARIANTS = [0, 1, 2, 3]
+const ALL_VARIANTS = [0, 1, 2, 3, 4, 5]
 const MOCK_PORT = 8787
 const PREVIEW_PORT = 4173
 const CONDITIONS = {
   historyMessages: 200,
+  /** 서버에 채워 두는 메시지 수. 처음에 최신 200개를 보이고, 위로 불러올 과거 메시지를 남겨 둔다. */
+  seededMessages: 400,
+  /** 과거 페이지가 반영된 뒤 위치를 더 샘플링할 프레임 수 */
+  framesAfterLoad: 10,
   replyTokens: 1500,
   tokensPerSecond: 40,
   seed: 11,
@@ -90,13 +101,19 @@ function isRawRun(value: unknown): value is RawRun & { sentAt: number } {
   )
 }
 
-async function runOnce(browser: Browser, version: number): Promise<RawRun> {
+async function runOnce(
+  browser: Browser,
+  version: number,
+): Promise<{ raw: RawRun; scroll: ScrollSample }> {
   // 이전 실행의 응답이 히스토리에 섞이지 않도록 실행마다 목 서버를 새로 띄운다.
   const server = start([TSX, 'apps/mock-server/src/index.ts'], {
     PORT: String(MOCK_PORT),
-    SEED_MESSAGES: String(CONDITIONS.historyMessages),
+    SEED_MESSAGES: String(CONDITIONS.seededMessages),
   })
   const context = await browser.newContext({ viewport: CONDITIONS.viewport })
+  // tsx(esbuild)는 함수 이름을 보존하려고 __name(...) 호출을 끼워 넣는다.
+  // page.evaluate로 넘긴 함수에도 그대로 딸려 가므로, 페이지에 같은 이름의 빈 헬퍼를 둔다.
+  await context.addInitScript('globalThis.__name = (fn) => fn')
   try {
     await waitFor(`http://localhost:${MOCK_PORT}/health`)
     const page = await context.newPage()
@@ -142,11 +159,52 @@ async function runOnce(browser: Browser, version: number): Promise<RawRun> {
       () => (window as unknown as { __bench?: unknown }).__bench,
     )
     if (!isRawRun(raw)) throw new Error('window.__bench를 읽지 못했다')
-    return raw
+    // 턴 지표를 먼저 읽어 둔다. 아래의 위로 불러오기가 마운트 수를 바꾸기 때문이다.
+    const turnRaw = structuredClone(raw)
+    const scroll = await page.evaluate(measureLoadOlder, CONDITIONS.framesAfterLoad)
+    return { raw: turnRaw, scroll }
   } finally {
     await context.close()
     await stop(server)
   }
+}
+
+/**
+ * 브라우저 안에서 실행한다. 맨 위로 올려 과거 페이지를 불러오게 하고,
+ * 올린 순간 보이던 첫 메시지의 위치를 반영 후 framesAfterLoad 프레임까지 매 프레임 기록한다.
+ */
+function measureLoadOlder(framesAfterLoad: number): Promise<ScrollSample> {
+  const list = document.querySelector<HTMLElement>('[data-testid="message-list"]')
+  if (!list) return Promise.reject(new Error('message-list 없음'))
+  const count = () => list.querySelectorAll('[data-testid="message"]').length
+  const before = count()
+  list.scrollTop = 0
+  const first = list.querySelector<HTMLElement>('[data-testid="message"]')
+  const key = first?.dataset.key ?? ''
+  const topOf = () => {
+    const node = list.querySelector(`[data-key="${CSS.escape(key)}"]`)
+    return node ? node.getBoundingClientRect().top - list.getBoundingClientRect().top : NaN
+  }
+  const initial = topOf()
+  const samples: number[] = []
+  const started = performance.now()
+  return new Promise((resolve, reject) => {
+    let afterLoad = -1
+    const tick = () => {
+      samples.push(topOf())
+      if (afterLoad < 0 && count() > before) afterLoad = 0
+      if (afterLoad >= 0 && ++afterLoad > framesAfterLoad) {
+        resolve({ initial, samples, final: topOf() })
+        return
+      }
+      if (performance.now() - started > 30_000) {
+        reject(new Error('과거 페이지가 반영되지 않았다'))
+        return
+      }
+      requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  })
 }
 
 function gitCommit(): string {
@@ -176,13 +234,14 @@ async function main(): Promise<void> {
     '--strictPort',
   ])
   const browser = await chromium.launch()
-  const results = new Map<number, RunSummary[]>(variants.map((v) => [v, []]))
+  const results = new Map<number, (RunSummary & ScrollSummary)[]>(variants.map((v) => [v, []]))
   try {
     await waitFor(`http://localhost:${PREVIEW_PORT}`)
     // 시간에 따른 기기 상태 변화가 한 버전에 몰리지 않도록 버전을 번갈아 실행한다.
     for (let i = 0; i < runs; i++) {
       for (const version of variants) {
-        const summary = summarizeRun(await runOnce(browser, version))
+        const { raw, scroll } = await runOnce(browser, version)
+        const summary = { ...summarizeRun(raw), ...summarizeScroll(scroll) }
         results.get(version)?.push(summary)
         console.log(`[${i + 1}/${runs}] v${version}`, JSON.stringify(summary))
       }
