@@ -1,0 +1,9 @@
+{
+  "name": "@stream-chat-lab/chat-protocol",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

@@ -1,0 +1,4 @@
+yarn.lock
+# 원본 설계 문서는 손대지 않는다.
+docs/DEMO_SPEC.md
+docs/LEARNING.md

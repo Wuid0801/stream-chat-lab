@@ -1,0 +1,10 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/sse-parser" },
+    { "path": "./packages/chat-protocol" },
+    { "path": "./apps/web" },
+    { "path": "./apps/mock-server" },
+    { "path": "./tsconfig.tooling.json" }
+  ]
+}
