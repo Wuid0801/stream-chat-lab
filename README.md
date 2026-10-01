@@ -31,7 +31,7 @@ yarn lint        # ESLint + Prettier 검사
 yarn typecheck   # tsc -b
 yarn test        # Vitest 단위 테스트
 yarn e2e         # Playwright E2E (mock-server와 web을 함께 띄운다)
-yarn bench       # 렌더 비용 측정 → docs/results.md (약 30~40분)
+yarn bench       # 렌더 비용 측정 → docs/results.md (v0~v5 × 10회, 약 50분)
 ```
 
 E2E를 처음 실행할 때는 브라우저를 설치한다: `yarn playwright install chromium`
@@ -52,7 +52,7 @@ http://localhost:5173/?scenario=drop-mid-stream&seed=11&transport=fetch
 http://localhost:5173/?scenario=long-silence&silence=8000&heartbeat=off&idleTimeout=3000&transport=fetch
 ```
 
-렌더 비교 버전은 `?v=0`~`?v=5`로 고른다. 기본값은 v5다. 버전별 기법은 [`docs/decisions/009`](docs/decisions/009-render-variants.md), [`014`](docs/decisions/014-client-id-render-key.md), [`015`](docs/decisions/015-scroll-correction-timing.md)에 있고, 측정 방법은 [`docs/decisions/010`](docs/decisions/010-benchmark-method.md)에 있다. 빠르게 확인할 때는 `yarn bench --runs 1 --variants 0,3`을 쓴다. 이때는 결과를 출력만 하고 파일은 쓰지 않는다.
+렌더 비교 버전은 `?v=0`~`?v=5`로 고른다. 기본값은 v5다. 버전별 기법은 [`docs/decisions/009`](docs/decisions/009-render-variants.md), [`014`](docs/decisions/014-client-id-render-key.md), [`015`](docs/decisions/015-scroll-correction-timing.md)에 있고, 측정 방법은 [`docs/decisions/010`](docs/decisions/010-benchmark-method.md)에 있다. 다른 시나리오는 `yarn bench --scenario proxy-buffering --variants 1,2`처럼 고르고, 결과는 `docs/results-<시나리오>.md`에 쓴다. 빠르게 확인할 때는 `yarn bench --runs 1 --variants 0,5`를 쓴다. 이때는 결과를 출력만 하고 파일은 쓰지 않는다.
 
 ## 구조
 

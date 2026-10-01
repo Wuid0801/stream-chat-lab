@@ -16,6 +16,9 @@ GET  /turns/:id/stream   Authorization: Bearer <demo-token>  [Last-Event-ID: N] 
 POST /turns/:id/stream-token   Authorization: Bearer <demo-token>
   → { streamToken }            이어 받기용 새 1회용 토큰
 
+POST /turns/:id/cancel         Authorization: Bearer <demo-token>
+  → { id, clientId, status, userMessage, assistantMessage }   사용자 중지
+
 GET  /turns/:id                Authorization: Bearer <demo-token>
   → { id, clientId, status, userMessage, assistantMessage | null }
 
@@ -74,6 +77,15 @@ token* → error
    - 이벤트를 하나라도 받으면 시도 횟수를 다시 센다.
    - **턴을 다시 만들지 않는다.** 재연결이 재전송이 되지 않는다.
 7. 이어 받기를 모두 실패하면 `GET /turns/:id`로 확인한다. `completed`이면 성공, 아니면 실패로 처리한다. (오탐 복구)
+
+## 중지
+
+사용자가 중지하면 클라이언트는 연결을 닫고 `POST /turns/:id/cancel`을 보낸다. ([decisions/016](decisions/016-stop-and-new-messages.md))
+
+- 서버는 생성을 멈추고, 지금까지 만든 토큰으로 응답 메시지를 저장한다(`stopped: true`). 구독자에게는 `done` → `final`을 보낸다.
+- 응답은 완료된 턴(`status: completed`)이다. 클라이언트는 이 응답으로 턴을 확정한다.
+- 중지를 기다리는 동안 늦게 온 토큰, 연결 오류, 이어 받기는 무시한다.
+- 이미 완료된 턴이면 그대로 돌려준다. 서버에 턴이 아직 없으면(준비 중) 클라이언트는 요청 없이 취소만 한다.
 
 ## 하트비트와 타임아웃
 
