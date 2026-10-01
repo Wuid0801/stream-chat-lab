@@ -78,6 +78,11 @@ async function runScenario(scenario: Scenario, seed = 7) {
 
 const types = (events: StreamEvent[]) => [...new Set(events.map((e) => e.type))]
 
+it('GET /health는 인증 없이 200 (E2E 준비 확인용)', async () => {
+  const { app } = setup()
+  expect((await app.request('/health')).status).toBe(200)
+})
+
 describe('인증', () => {
   it('Bearer 토큰 없이 턴을 만들면 401', async () => {
     const { app } = setup()

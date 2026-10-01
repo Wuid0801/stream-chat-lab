@@ -47,6 +47,8 @@ export function createApp(options: AppOptions) {
   const unauthorized = (c: Context, message = '인증이 필요하다') =>
     c.json({ code: 'unauthorized', message }, 401)
 
+  app.get('/health', (c) => c.text('ok'))
+
   app.post('/turns', async (c) => {
     if (!hasDemoToken(c)) return unauthorized(c)
     const body = createTurnRequestSchema.safeParse(await c.req.json().catch(() => null))
