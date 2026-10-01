@@ -18,6 +18,7 @@ const conditions: Conditions = {
   seed: 11,
   viewport: '1280x720',
   build: 'vite build --mode bench',
+  scenario: 'normal',
 }
 
 const run = (overrides: Partial<RunSummary & ScrollSummary> = {}): RunSummary & ScrollSummary => ({
@@ -43,6 +44,15 @@ describe('renderReport', () => {
     expect(md).toContain('Chromium 1.0')
     expect(md).toContain('CPU 4×')
     expect(md).toContain('abc1234')
+    expect(md).toContain('`normal` 시나리오')
+  })
+
+  it('normal이 아닌 시나리오는 제목과 조건에 시나리오를 적는다', () => {
+    const other = renderReport({ ...conditions, scenario: 'proxy-buffering' }, [
+      { version: 1, runs: [run()] },
+    ])
+    expect(other).toMatch(/^# 측정 결과: proxy-buffering/)
+    expect(other).toContain('`proxy-buffering` 시나리오')
   })
 
   it('버전마다 중앙값과 p90을 적는다', () => {
