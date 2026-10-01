@@ -1,0 +1,361 @@
+{
+  "conditions": {
+    "date": "2026-10-01",
+    "commit": "44eb49c",
+    "cpu": "Intel(R) Core(TM) Ultra 7 155H (논리 코어 22개)",
+    "memoryGb": 31,
+    "os": "Windows 11 Pro (10.0.26200)",
+    "browser": "Chromium 153.0.8010.12",
+    "playwright": "1.63.0",
+    "cpuThrottle": 4,
+    "runsPerVariant": 10,
+    "historyMessages": 200,
+    "replyTokens": 1500,
+    "tokensPerSecond": 40,
+    "seed": 11,
+    "viewport": "1280x720",
+    "build": "vite build --mode bench"
+  },
+  "results": [
+    {
+      "version": 0,
+      "runs": [
+        {
+          "commits": 839,
+          "meanRenderMs": 46.5927294395571,
+          "maxRenderMs": 187.10000002384186,
+          "longTaskTotalMs": 29765,
+          "inpMs": 160,
+          "remounts": 2
+        },
+        {
+          "commits": 873,
+          "meanRenderMs": 43.36013745771719,
+          "maxRenderMs": 183.50000004470348,
+          "longTaskTotalMs": 28561,
+          "inpMs": 152,
+          "remounts": 2
+        },
+        {
+          "commits": 775,
+          "meanRenderMs": 48.847096775654826,
+          "maxRenderMs": 162.99999997019768,
+          "longTaskTotalMs": 35281,
+          "inpMs": 184,
+          "remounts": 2
+        },
+        {
+          "commits": 694,
+          "meanRenderMs": 55.709654178159035,
+          "maxRenderMs": 216.1000000834465,
+          "longTaskTotalMs": 37246,
+          "inpMs": 184,
+          "remounts": 2
+        },
+        {
+          "commits": 678,
+          "meanRenderMs": 55.48643067756058,
+          "maxRenderMs": 169.99999995529652,
+          "longTaskTotalMs": 38317,
+          "inpMs": 120,
+          "remounts": 2
+        },
+        {
+          "commits": 715,
+          "meanRenderMs": 53.77622377659891,
+          "maxRenderMs": 179.29999996721745,
+          "longTaskTotalMs": 38353,
+          "inpMs": 144,
+          "remounts": 2
+        },
+        {
+          "commits": 591,
+          "meanRenderMs": 65.53688663188778,
+          "maxRenderMs": 214.40000000596046,
+          "longTaskTotalMs": 41990,
+          "inpMs": 160,
+          "remounts": 2
+        },
+        {
+          "commits": 709,
+          "meanRenderMs": 52.43102961925761,
+          "maxRenderMs": 97.50000001490116,
+          "longTaskTotalMs": 37971,
+          "inpMs": 88,
+          "remounts": 2
+        },
+        {
+          "commits": 627,
+          "meanRenderMs": 62.163955342755365,
+          "maxRenderMs": 180.49999994039536,
+          "longTaskTotalMs": 40157,
+          "inpMs": 184,
+          "remounts": 2
+        },
+        {
+          "commits": 798,
+          "meanRenderMs": 47.42606516262717,
+          "maxRenderMs": 202.8000000268221,
+          "longTaskTotalMs": 33634,
+          "inpMs": 152,
+          "remounts": 2
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "runs": [
+        {
+          "commits": 1493,
+          "meanRenderMs": 4.338379102599996,
+          "maxRenderMs": 84.80000001192093,
+          "longTaskTotalMs": 202,
+          "inpMs": 48,
+          "remounts": 2
+        },
+        {
+          "commits": 1498,
+          "meanRenderMs": 3.376902536423168,
+          "maxRenderMs": 69.70000000298023,
+          "longTaskTotalMs": 231,
+          "inpMs": 32,
+          "remounts": 2
+        },
+        {
+          "commits": 1495,
+          "meanRenderMs": 3.510769230884852,
+          "maxRenderMs": 108.20000000298023,
+          "longTaskTotalMs": 172,
+          "inpMs": 48,
+          "remounts": 2
+        },
+        {
+          "commits": 1498,
+          "meanRenderMs": 4.731508678076503,
+          "maxRenderMs": 189.89999997615814,
+          "longTaskTotalMs": 335,
+          "inpMs": 96,
+          "remounts": 2
+        },
+        {
+          "commits": 1495,
+          "meanRenderMs": 4.59150501684999,
+          "maxRenderMs": 115.59999999403954,
+          "longTaskTotalMs": 216,
+          "inpMs": 48,
+          "remounts": 2
+        },
+        {
+          "commits": 1496,
+          "meanRenderMs": 4.701002673709137,
+          "maxRenderMs": 83.59999994933605,
+          "longTaskTotalMs": 195,
+          "inpMs": 32,
+          "remounts": 2
+        },
+        {
+          "commits": 1499,
+          "meanRenderMs": 4.051634423340297,
+          "maxRenderMs": 102.10000002384186,
+          "longTaskTotalMs": 198,
+          "inpMs": 24,
+          "remounts": 2
+        },
+        {
+          "commits": 1499,
+          "meanRenderMs": 4.187258172156494,
+          "maxRenderMs": 90.59999997913837,
+          "longTaskTotalMs": 239,
+          "inpMs": 48,
+          "remounts": 2
+        },
+        {
+          "commits": 1500,
+          "meanRenderMs": 3.926333333055178,
+          "maxRenderMs": 93.50000001490116,
+          "longTaskTotalMs": 160,
+          "inpMs": 40,
+          "remounts": 2
+        },
+        {
+          "commits": 1501,
+          "meanRenderMs": 3.6102598265637407,
+          "maxRenderMs": 67.70000003278255,
+          "longTaskTotalMs": 150,
+          "inpMs": 32,
+          "remounts": 2
+        }
+      ]
+    },
+    {
+      "version": 2,
+      "runs": [
+        {
+          "commits": 1494,
+          "meanRenderMs": 3.832262382918652,
+          "maxRenderMs": 66.99999998509884,
+          "longTaskTotalMs": 187,
+          "inpMs": 40,
+          "remounts": 2
+        },
+        {
+          "commits": 1495,
+          "meanRenderMs": 3.8743812710246113,
+          "maxRenderMs": 102.50000001490116,
+          "longTaskTotalMs": 259,
+          "inpMs": 40,
+          "remounts": 2
+        },
+        {
+          "commits": 1486,
+          "meanRenderMs": 3.9216016152344673,
+          "maxRenderMs": 66.80000002682209,
+          "longTaskTotalMs": 125,
+          "inpMs": 40,
+          "remounts": 2
+        },
+        {
+          "commits": 1491,
+          "meanRenderMs": 5.165459423247877,
+          "maxRenderMs": 84,
+          "longTaskTotalMs": 181,
+          "inpMs": 32,
+          "remounts": 2
+        },
+        {
+          "commits": 1486,
+          "meanRenderMs": 4.662314939206093,
+          "maxRenderMs": 73.79999999701977,
+          "longTaskTotalMs": 198,
+          "inpMs": 32,
+          "remounts": 2
+        },
+        {
+          "commits": 1490,
+          "meanRenderMs": 4.237114094097742,
+          "maxRenderMs": 86.2999999821186,
+          "longTaskTotalMs": 215,
+          "inpMs": 40,
+          "remounts": 2
+        },
+        {
+          "commits": 1488,
+          "meanRenderMs": 4.97419354859339,
+          "maxRenderMs": 78.40000002086163,
+          "longTaskTotalMs": 216,
+          "inpMs": 40,
+          "remounts": 2
+        },
+        {
+          "commits": 1496,
+          "meanRenderMs": 3.920989304721196,
+          "maxRenderMs": 82.3999999910593,
+          "longTaskTotalMs": 219,
+          "inpMs": 40,
+          "remounts": 2
+        },
+        {
+          "commits": 1493,
+          "meanRenderMs": 4.158472873345366,
+          "maxRenderMs": 64.8999999910593,
+          "longTaskTotalMs": 167,
+          "inpMs": 32,
+          "remounts": 2
+        },
+        {
+          "commits": 1493,
+          "meanRenderMs": 4.23295378444463,
+          "maxRenderMs": 120.2999999821186,
+          "longTaskTotalMs": 236,
+          "inpMs": 32,
+          "remounts": 2
+        }
+      ]
+    },
+    {
+      "version": 3,
+      "runs": [
+        {
+          "commits": 1496,
+          "meanRenderMs": 0.4718582890529365,
+          "maxRenderMs": 115.59999997913837,
+          "longTaskTotalMs": 180,
+          "inpMs": 32,
+          "remounts": 2
+        },
+        {
+          "commits": 1500,
+          "meanRenderMs": 0.4730000001390775,
+          "maxRenderMs": 98.1000000089407,
+          "longTaskTotalMs": 108,
+          "inpMs": 24,
+          "remounts": 2
+        },
+        {
+          "commits": 1498,
+          "meanRenderMs": 0.4550066754341285,
+          "maxRenderMs": 117.30000004172325,
+          "longTaskTotalMs": 133,
+          "inpMs": 32,
+          "remounts": 2
+        },
+        {
+          "commits": 1498,
+          "meanRenderMs": 0.4646862480585502,
+          "maxRenderMs": 132.50000001490116,
+          "longTaskTotalMs": 151,
+          "inpMs": 40,
+          "remounts": 2
+        },
+        {
+          "commits": 1499,
+          "meanRenderMs": 0.4549699798077245,
+          "maxRenderMs": 91.00000001490116,
+          "longTaskTotalMs": 104,
+          "inpMs": 24,
+          "remounts": 2
+        },
+        {
+          "commits": 1500,
+          "meanRenderMs": 0.5822666665712992,
+          "maxRenderMs": 191.3999999910593,
+          "longTaskTotalMs": 219,
+          "inpMs": 80,
+          "remounts": 2
+        },
+        {
+          "commits": 1496,
+          "meanRenderMs": 0.5868315510750614,
+          "maxRenderMs": 198.30000001192093,
+          "longTaskTotalMs": 220,
+          "inpMs": 80,
+          "remounts": 2
+        },
+        {
+          "commits": 1496,
+          "meanRenderMs": 0.49451871683452536,
+          "maxRenderMs": 116,
+          "longTaskTotalMs": 132,
+          "inpMs": 32,
+          "remounts": 2
+        },
+        {
+          "commits": 1499,
+          "meanRenderMs": 0.4906604404128178,
+          "maxRenderMs": 151.09999994933605,
+          "longTaskTotalMs": 172,
+          "inpMs": 32,
+          "remounts": 2
+        },
+        {
+          "commits": 1493,
+          "meanRenderMs": 0.5459477558821859,
+          "maxRenderMs": 184.80000001192093,
+          "longTaskTotalMs": 200,
+          "inpMs": 32,
+          "remounts": 2
+        }
+      ]
+    }
+  ]
+}
